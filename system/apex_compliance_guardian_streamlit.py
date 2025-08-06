@@ -124,27 +124,71 @@ class EnhancedNotificationSystem:
         
         freq = frequencies.get(alert_type, 500)
         
-        # Create a simple beep sound using Web Audio API
+        # Create a robust sound notification using Web Audio API
         audio_html = f"""
         <script>
-        if ('{self.notification_settings['sound_enabled']}' === 'True') {{
-            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            const oscillator = audioContext.createOscillator();
-            const gainNode = audioContext.createGain();
-            
-            oscillator.connect(gainNode);
-            gainNode.connect(audioContext.destination);
-            
-            oscillator.frequency.value = {freq};
-            oscillator.type = 'sine';
-            
-            gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-            gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.01);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
-            
-            oscillator.start(audioContext.currentTime);
-            oscillator.stop(audioContext.currentTime + 0.5);
-        }}
+        (function() {{
+            if ({str(self.notification_settings['sound_enabled']).lower()}) {{
+                try {{
+                    // Check for user interaction first
+                    if (typeof window.audioContextInitialized === 'undefined') {{
+                        window.audioContextInitialized = false;
+                        document.addEventListener('click', function initAudio() {{
+                            window.audioContextInitialized = true;
+                            document.removeEventListener('click', initAudio);
+                        }}, {{ once: true }});
+                    }}
+                    
+                    // Create audio context
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    if (!AudioContext) {{
+                        console.warn('Web Audio API not supported');
+                        return;
+                    }}
+                    
+                    const audioContext = new AudioContext();
+                    
+                    // Resume context if suspended
+                    if (audioContext.state === 'suspended') {{
+                        audioContext.resume();
+                    }}
+                    
+                    const oscillator = audioContext.createOscillator();
+                    const gainNode = audioContext.createGain();
+                    
+                    oscillator.connect(gainNode);
+                    gainNode.connect(audioContext.destination);
+                    
+                    oscillator.frequency.setValueAtTime({freq}, audioContext.currentTime);
+                    oscillator.type = 'sine';
+                    
+                    // Smooth volume envelope
+                    gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+                    gainNode.gain.linearRampToValueAtTime(0.2, audioContext.currentTime + 0.05);
+                    gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.8);
+                    
+                    oscillator.start(audioContext.currentTime);
+                    oscillator.stop(audioContext.currentTime + 0.8);
+                    
+                    // Clean up
+                    oscillator.onended = function() {{
+                        oscillator.disconnect();
+                        gainNode.disconnect();
+                    }};
+                    
+                }} catch (error) {{
+                    console.warn('Audio notification failed:', error);
+                    // Fallback: try system beep
+                    try {{
+                        const fallbackAudio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEaETGH0fPTgjMGHm7A7+OZURE,');
+                        fallbackAudio.volume = 0.1;
+                        fallbackAudio.play().catch(() => {{}});
+                    }} catch (fallbackError) {{
+                        console.warn('Fallback audio also failed:', fallbackError);
+                    }}
+                }}
+            }}
+        }})();
         </script>
         """
         return audio_html
@@ -160,30 +204,65 @@ class EnhancedNotificationSystem:
         
         icon = icons.get(alert_type, 'ℹ️')
         
+        # Clean message text for JavaScript
+        clean_title = title.replace('"', '\\"').replace("'", "\\'")
+        clean_message = message.replace('"', '\\"').replace("'", "\\'")
+        
         notification_html = f"""
         <script>
-        if ('{self.notification_settings['browser_notifications']}' === 'True') {{
-            if ("Notification" in window) {{
-                if (Notification.permission === "granted") {{
-                    new Notification("{icon} {title}", {{
-                        body: "{message}",
-                        icon: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDNi40OCAyIDIgNi40OCAyIDEyUzYuNDggMjIgMTIgMjJTMjIgMTcuNTIgMjIgMTJTMTcuNTIgMiAxMiAyWiIgZmlsbD0iIzJkM2E4NyIvPgo8L3N2Zz4K",
-                        requireInteraction: true,
-                        tag: "apex-compliance"
-                    }});
-                }} else if (Notification.permission !== "denied") {{
-                    Notification.requestPermission().then(function (permission) {{
-                        if (permission === "granted") {{
-                            new Notification("{icon} {title}", {{
-                                body: "{message}",
-                                requireInteraction: true,
-                                tag: "apex-compliance"
+        (function() {{
+            if ({str(self.notification_settings['browser_notifications']).lower()}) {{
+                try {{
+                    if ("Notification" in window) {{
+                        if (Notification.permission === "granted") {{
+                            const notification = new Notification("{icon} {clean_title}", {{
+                                body: "{clean_message}",
+                                icon: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDNi40OCAyIDIgNi40OCAyIDEyUzYuNDggMjIgMTIgMjJTMjIgMTcuNTIgMjIgMTJTMTcuNTIgMiAxMiAyWiIgZmlsbD0iIzJkM2E4NyIvPgo8L3N2Zz4K",
+                                requireInteraction: false,
+                                tag: "apex-compliance-{alert_type.lower()}",
+                                timestamp: Date.now(),
+                                silent: false
                             }});
+                            
+                            // Auto-close after 5 seconds for non-critical alerts
+                            if ('{alert_type}' !== 'ERROR') {{
+                                setTimeout(() => {{
+                                    if (notification) {{
+                                        notification.close();
+                                    }}
+                                }}, 5000);
+                            }}
+                            
+                        }} else if (Notification.permission !== "denied") {{
+                            Notification.requestPermission().then(function (permission) {{
+                                if (permission === "granted") {{
+                                    const notification = new Notification("{icon} {clean_title}", {{
+                                        body: "{clean_message}",
+                                        requireInteraction: '{alert_type}' === 'ERROR',
+                                        tag: "apex-compliance-{alert_type.lower()}",
+                                        timestamp: Date.now()
+                                    }});
+                                    
+                                    if ('{alert_type}' !== 'ERROR') {{
+                                        setTimeout(() => {{
+                                            if (notification) {{
+                                                notification.close();
+                                            }}
+                                        }}, 5000);
+                                    }}
+                                }}
+                            }});
+                        }} else {{
+                            console.warn('Browser notifications are blocked');
                         }}
-                    }});
+                    }} else {{
+                        console.warn('Browser notifications not supported');
+                    }}
+                }} catch (error) {{
+                    console.warn('Browser notification failed:', error);
                 }}
             }}
-        }}
+        }})();
         </script>
         """
         return notification_html
