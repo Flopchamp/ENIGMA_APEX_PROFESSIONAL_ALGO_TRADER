@@ -15,7 +15,7 @@ from system.desktop_notifier import DesktopNotifier
 async def demo_enigma_notifications():
     """Demonstrate Enigma Apex notifications for clients"""
     
-    print("🎯 ENIGMA APEX NOTIFICATION DEMO")
+    print("🎯 ENIGMA APEX DEMO")
     print("=" * 50)
     print("This will show your client the notification system in action...")
     print("Watch for Windows toast notifications in the bottom-right corner!")
