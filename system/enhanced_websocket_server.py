@@ -18,8 +18,8 @@ import os
 
 # Add current directory to path to import our integration
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-from production_websocket_integration import ProductionWebSocketIntegration
-from desktop_notifier import DesktopNotifier
+# from production_websocket_integration import ProductionWebSocketIntegration
+# from desktop_notifier import DesktopNotifier
 
 class MessageType(Enum):
     """WebSocket message types"""

@@ -17,6 +17,8 @@ import logging
 from dataclasses import dataclass, asdict
 from typing import Dict, List, Optional, Tuple
 import sqlite3
+import base64
+import io
 
 # Page configuration
 st.set_page_config(
@@ -97,6 +99,123 @@ class AlgoBarSettings:
     wick_style: str = "Standard"  # Standard, Thin, Thick
     show_imbalance_zones: bool = True
     no_repainting: bool = True  # WYSIWYG principle
+
+class EnhancedNotificationSystem:
+    """Advanced notification system with sound, visual, and browser alerts"""
+    
+    def __init__(self):
+        self.notification_settings = {
+            'sound_enabled': True,
+            'browser_notifications': True,
+            'visual_flash': True,
+            'email_alerts': False,  # For future implementation
+            'sms_alerts': False,    # For future implementation
+        }
+        
+    def create_sound_notification(self, alert_type: str) -> str:
+        """Create HTML audio element for sound notifications"""
+        # Generate different tones for different alert types
+        frequencies = {
+            'ERROR': 800,    # High pitch for errors
+            'WARNING': 600,  # Medium pitch for warnings
+            'SUCCESS': 400,  # Low pitch for success
+            'INFO': 500,     # Neutral pitch for info
+        }
+        
+        freq = frequencies.get(alert_type, 500)
+        
+        # Create a simple beep sound using Web Audio API
+        audio_html = f"""
+        <script>
+        if ('{self.notification_settings['sound_enabled']}' === 'True') {{
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.value = {freq};
+            oscillator.type = 'sine';
+            
+            gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+            gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.01);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.5);
+        }}
+        </script>
+        """
+        return audio_html
+    
+    def create_browser_notification(self, title: str, message: str, alert_type: str) -> str:
+        """Create browser notification using Notification API"""
+        icons = {
+            'ERROR': '🚨',
+            'WARNING': '⚠️',
+            'SUCCESS': '✅',
+            'INFO': 'ℹ️',
+        }
+        
+        icon = icons.get(alert_type, 'ℹ️')
+        
+        notification_html = f"""
+        <script>
+        if ('{self.notification_settings['browser_notifications']}' === 'True') {{
+            if ("Notification" in window) {{
+                if (Notification.permission === "granted") {{
+                    new Notification("{icon} {title}", {{
+                        body: "{message}",
+                        icon: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDNi40OCAyIDIgNi40OCAyIDEyUzYuNDggMjIgMTIgMjJTMjIgMTcuNTIgMjIgMTJTMTcuNTIgMiAxMiAyWiIgZmlsbD0iIzJkM2E4NyIvPgo8L3N2Zz4K",
+                        requireInteraction: true,
+                        tag: "apex-compliance"
+                    }});
+                }} else if (Notification.permission !== "denied") {{
+                    Notification.requestPermission().then(function (permission) {{
+                        if (permission === "granted") {{
+                            new Notification("{icon} {title}", {{
+                                body: "{message}",
+                                requireInteraction: true,
+                                tag: "apex-compliance"
+                            }});
+                        }}
+                    }});
+                }}
+            }}
+        }}
+        </script>
+        """
+        return notification_html
+    
+    def create_visual_flash(self, alert_type: str) -> str:
+        """Create visual flash effect for critical alerts"""
+        colors = {
+            'ERROR': '#ff4b4b',
+            'WARNING': '#ff8c00',
+            'SUCCESS': '#00d084',
+            'INFO': '#0066cc',
+        }
+        
+        color = colors.get(alert_type, '#0066cc')
+        
+        flash_html = f"""
+        <style>
+        @keyframes flashAlert {{
+            0% {{ background-color: transparent; }}
+            50% {{ background-color: {color}20; }}
+            100% {{ background-color: transparent; }}
+        }}
+        .flash-{alert_type.lower()} {{
+            animation: flashAlert 0.5s ease-in-out 3;
+            border: 2px solid {color};
+            border-radius: 5px;
+            padding: 10px;
+            margin: 5px 0;
+        }}
+        </style>
+        """
+        return flash_html
 
 class AlgoBarEngine:
     """AlgoBox AlgoBar calculation engine - Price-based bars without time distortion"""
@@ -227,6 +346,7 @@ class ApexComplianceGuardian:
         self.trade_data = TradeData()
         self.algo_settings = AlgoBarSettings()
         self.algo_engine = AlgoBarEngine(self.algo_settings)
+        self.notification_system = EnhancedNotificationSystem()
         self.violations = []
         self.alerts = []
         self.monitoring_active = False
@@ -238,6 +358,7 @@ class ApexComplianceGuardian:
             st.session_state.alerts = []
             st.session_state.violations = []
             st.session_state.algo_bars = []
+            st.session_state.notification_settings = self.notification_system.notification_settings
             
         # Setup logging
         logging.basicConfig(
@@ -248,8 +369,8 @@ class ApexComplianceGuardian:
         
         self.load_settings()
         
-    def add_alert(self, message: str, level: str = "INFO"):
-        """Add alert to the system"""
+    def add_alert(self, message: str, level: str = "INFO", enable_notifications: bool = True):
+        """Add alert to the system with enhanced notifications"""
         timestamp = datetime.now().strftime("%H:%M:%S")
         alert = {
             'timestamp': timestamp,
@@ -266,6 +387,24 @@ class ApexComplianceGuardian:
         # Keep only last 100 alerts
         if len(st.session_state.alerts) > 100:
             st.session_state.alerts = st.session_state.alerts[-100:]
+            
+        # Enhanced notifications for critical alerts
+        if enable_notifications and level in ['ERROR', 'WARNING']:
+            # Add sound notification
+            sound_html = self.notification_system.create_sound_notification(level)
+            st.markdown(sound_html, unsafe_allow_html=True)
+            
+            # Add browser notification
+            browser_html = self.notification_system.create_browser_notification(
+                title="Apex Compliance Alert",
+                message=message,
+                alert_type=level
+            )
+            st.markdown(browser_html, unsafe_allow_html=True)
+            
+            # Add visual flash
+            flash_html = self.notification_system.create_visual_flash(level)
+            st.markdown(flash_html, unsafe_allow_html=True)
             
         # Log to file
         logging.info(f"{level}: {message}")
@@ -1134,6 +1273,37 @@ def create_sidebar():
             guardian.add_alert("🚀 Real-time monitoring STARTED", "SUCCESS")
         else:
             guardian.add_alert("🛑 Real-time monitoring STOPPED", "WARNING")
+    
+    # Enhanced Notification Settings
+    st.sidebar.markdown("### 🔔 Notification Settings")
+    
+    sound_enabled = st.sidebar.checkbox(
+        "🔊 Sound Alerts", 
+        value=guardian.notification_system.notification_settings['sound_enabled'],
+        help="Play audio alerts for critical events"
+    )
+    
+    browser_notifications = st.sidebar.checkbox(
+        "📱 Browser Notifications", 
+        value=guardian.notification_system.notification_settings['browser_notifications'],
+        help="Show browser popup notifications"
+    )
+    
+    visual_flash = st.sidebar.checkbox(
+        "✨ Visual Flash Effects", 
+        value=guardian.notification_system.notification_settings['visual_flash'],
+        help="Flash screen for critical alerts"
+    )
+    
+    # Update notification settings
+    guardian.notification_system.notification_settings.update({
+        'sound_enabled': sound_enabled,
+        'browser_notifications': browser_notifications,
+        'visual_flash': visual_flash,
+    })
+    
+    if st.sidebar.button("🧪 Test Notifications"):
+        guardian.add_alert("🧪 Notification test - System working correctly!", "WARNING", enable_notifications=True)
 
 def create_main_dashboard():
     """Create the main dashboard"""
@@ -1213,29 +1383,75 @@ def create_main_dashboard():
         st.caption(monitoring_status)
 
 def create_alerts_panel():
-    """Create the alerts and violations panel"""
-    st.markdown("###  Compliance Alerts & Violations")
+    """Create the enhanced alerts and violations panel with real-time notifications"""
+    st.markdown("### 🔔 Compliance Alerts & Violations")
     
-    tab1, tab2, tab3 = st.tabs([" Recent Alerts", "🚨 Violations", "📊 AlgoBar Analysis"])
+    # Real-time notification status
+    guardian = st.session_state.guardian
+    notification_status_col1, notification_status_col2, notification_status_col3 = st.columns(3)
+    
+    with notification_status_col1:
+        sound_status = "🔊 ON" if guardian.notification_system.notification_settings['sound_enabled'] else "🔇 OFF"
+        st.metric("Sound Alerts", sound_status)
+    
+    with notification_status_col2:
+        browser_status = "📱 ON" if guardian.notification_system.notification_settings['browser_notifications'] else "📱 OFF"
+        st.metric("Browser Alerts", browser_status)
+    
+    with notification_status_col3:
+        visual_status = "✨ ON" if guardian.notification_system.notification_settings['visual_flash'] else "✨ OFF"
+        st.metric("Visual Effects", visual_status)
+    
+    tab1, tab2, tab3, tab4 = st.tabs(["🔔 Recent Alerts", "🚨 Violations", "📊 AlgoBar Analysis", "🔧 Notification Log"])
     
     with tab1:
         if 'alerts' in st.session_state and st.session_state.alerts:
-            # Show last 10 alerts
+            # Show last 10 alerts with enhanced styling
             recent_alerts = st.session_state.alerts[-10:]
+            
+            # Add live alert counter
+            alert_counts = {'ERROR': 0, 'WARNING': 0, 'SUCCESS': 0, 'INFO': 0}
+            for alert in recent_alerts:
+                alert_counts[alert['level']] += 1
+            
+            counter_col1, counter_col2, counter_col3, counter_col4 = st.columns(4)
+            with counter_col1:
+                st.metric("🚨 Errors", alert_counts['ERROR'])
+            with counter_col2:
+                st.metric("⚠️ Warnings", alert_counts['WARNING'])
+            with counter_col3:
+                st.metric("✅ Success", alert_counts['SUCCESS'])
+            with counter_col4:
+                st.metric("ℹ️ Info", alert_counts['INFO'])
+            
+            st.markdown("---")
             
             for alert in reversed(recent_alerts):
                 level = alert['level']
                 message = alert['message']
                 timestamp = alert['timestamp']
                 
+                # Enhanced styling with icons and colors
                 if level == "ERROR":
-                    st.error(f"[{timestamp}] {message}")
+                    st.markdown(
+                        f'<div class="flash-error"><strong>🚨 ERROR [{timestamp}]</strong><br>{message}</div>',
+                        unsafe_allow_html=True
+                    )
                 elif level == "WARNING":
-                    st.warning(f"[{timestamp}] {message}")
+                    st.markdown(
+                        f'<div class="flash-warning"><strong>⚠️ WARNING [{timestamp}]</strong><br>{message}</div>',
+                        unsafe_allow_html=True
+                    )
                 elif level == "SUCCESS":
-                    st.success(f"[{timestamp}] {message}")
+                    st.markdown(
+                        f'<div class="flash-success"><strong>✅ SUCCESS [{timestamp}]</strong><br>{message}</div>',
+                        unsafe_allow_html=True
+                    )
                 else:
-                    st.info(f"[{timestamp}] {message}")
+                    st.markdown(
+                        f'<div class="flash-info"><strong>ℹ️ INFO [{timestamp}]</strong><br>{message}</div>',
+                        unsafe_allow_html=True
+                    )
         else:
             st.info("No alerts yet. Start monitoring to see system alerts.")
             
@@ -1251,7 +1467,7 @@ def create_alerts_panel():
         recent_bars = guardian.algo_engine.get_recent_bars(20)
         
         if recent_bars:
-            st.markdown("#### 📈 Recent AlgoBar Performance")
+            st.markdown("####  Recent AlgoBar Performance")
             
             # Create summary table
             bar_data = []
@@ -1283,9 +1499,162 @@ def create_alerts_panel():
                 st.metric("Fast Bars", fast_bars)
         else:
             st.info("Start monitoring to see AlgoBar analysis")
+            
+    with tab4:
+        st.markdown("#### 🔧 Enhanced Notification System Log")
+        
+        # Notification system status
+        st.markdown("**Current Settings:**")
+        settings_col1, settings_col2 = st.columns(2)
+        
+        with settings_col1:
+            st.write(f"🔊 Sound Alerts: {'✅ Enabled' if guardian.notification_system.notification_settings['sound_enabled'] else '❌ Disabled'}")
+            st.write(f"📱 Browser Notifications: {'✅ Enabled' if guardian.notification_system.notification_settings['browser_notifications'] else '❌ Disabled'}")
+        
+        with settings_col2:
+            st.write(f"✨ Visual Flash: {'✅ Enabled' if guardian.notification_system.notification_settings['visual_flash'] else '❌ Disabled'}")
+            st.write(f"📧 Email Alerts: {'🚧 Coming Soon' if guardian.notification_system.notification_settings['email_alerts'] else '🚧 Coming Soon'}")
+        
+        st.markdown("---")
+        
+        # Test notification buttons
+        st.markdown("**Test Notifications:**")
+        test_col1, test_col2, test_col3, test_col4 = st.columns(4)
+        
+        with test_col1:
+            if st.button("🔊 Test Sound"):
+                guardian.add_alert("🔊 Sound test notification", "INFO", enable_notifications=True)
+        
+        with test_col2:
+            if st.button("⚠️ Test Warning"):
+                guardian.add_alert("⚠️ Warning test - Risk level approaching", "WARNING", enable_notifications=True)
+        
+        with test_col3:
+            if st.button("🚨 Test Error"):
+                guardian.add_alert("🚨 Critical error test - Compliance violation", "ERROR", enable_notifications=True)
+        
+        with test_col4:
+            if st.button("✅ Test Success"):
+                guardian.add_alert("✅ Success test - Trade executed safely", "SUCCESS", enable_notifications=True)
+        
+        st.markdown("---")
+        
+        # Notification statistics
+        if 'alerts' in st.session_state and st.session_state.alerts:
+            total_alerts = len(st.session_state.alerts)
+            today_alerts = len([a for a in st.session_state.alerts if a['full_time'].date() == datetime.now().date()])
+            
+            stats_col1, stats_col2, stats_col3 = st.columns(3)
+            with stats_col1:
+                st.metric("Total Alerts", total_alerts)
+            with stats_col2:
+                st.metric("Today's Alerts", today_alerts)
+            with stats_col3:
+                last_alert = st.session_state.alerts[-1]['full_time'] if st.session_state.alerts else None
+                if last_alert:
+                    time_diff = datetime.now() - last_alert
+                    if time_diff.seconds < 60:
+                        st.metric("Last Alert", f"{time_diff.seconds}s ago")
+                    else:
+                        st.metric("Last Alert", f"{time_diff.seconds//60}m ago")
+                else:
+                    st.metric("Last Alert", "Never")
+        
+        # Browser notification permission check
+        st.markdown("**Browser Notification Status:**")
+        st.markdown("""
+        <script>
+        if ("Notification" in window) {
+            if (Notification.permission === "granted") {
+                document.write("✅ Browser notifications are enabled");
+            } else if (Notification.permission === "denied") {
+                document.write("❌ Browser notifications are blocked");
+            } else {
+                document.write("⚠️ Browser notifications not yet permitted");
+            }
+        } else {
+            document.write("❌ Browser does not support notifications");
+        }
+        </script>
+        """, unsafe_allow_html=True)
 
 def main():
     """Main Streamlit application"""
+    # Enhanced CSS for notification styling
+    st.markdown("""
+    <style>
+    /* Enhanced notification styling */
+    .flash-error {
+        background: linear-gradient(135deg, #ff4b4b15, #ff4b4b25);
+        border-left: 5px solid #ff4b4b;
+        padding: 10px 15px;
+        margin: 8px 0;
+        border-radius: 8px;
+        animation: flashAlert 0.5s ease-in-out 2;
+        box-shadow: 0 2px 4px rgba(255, 75, 75, 0.2);
+    }
+    
+    .flash-warning {
+        background: linear-gradient(135deg, #ff8c0015, #ff8c0025);
+        border-left: 5px solid #ff8c00;
+        padding: 10px 15px;
+        margin: 8px 0;
+        border-radius: 8px;
+        animation: flashAlert 0.5s ease-in-out 2;
+        box-shadow: 0 2px 4px rgba(255, 140, 0, 0.2);
+    }
+    
+    .flash-success {
+        background: linear-gradient(135deg, #00d08415, #00d08425);
+        border-left: 5px solid #00d084;
+        padding: 10px 15px;
+        margin: 8px 0;
+        border-radius: 8px;
+        animation: flashAlert 0.5s ease-in-out 2;
+        box-shadow: 0 2px 4px rgba(0, 208, 132, 0.2);
+    }
+    
+    .flash-info {
+        background: linear-gradient(135deg, #0066cc15, #0066cc25);
+        border-left: 5px solid #0066cc;
+        padding: 10px 15px;
+        margin: 8px 0;
+        border-radius: 8px;
+        animation: flashAlert 0.5s ease-in-out 1;
+        box-shadow: 0 2px 4px rgba(0, 102, 204, 0.2);
+    }
+    
+    @keyframes flashAlert {
+        0% { 
+            transform: scale(0.98);
+            opacity: 0.8;
+        }
+        50% { 
+            transform: scale(1.02);
+            opacity: 1;
+        }
+        100% { 
+            transform: scale(1);
+            opacity: 1;
+        }
+    }
+    
+    /* Custom metric styling */
+    .metric-card {
+        background: white;
+        padding: 15px;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        text-align: center;
+    }
+    
+    /* Sidebar enhancements */
+    .css-1d391kg {
+        background: linear-gradient(180deg, #f0f2f6 0%, #ffffff 100%);
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
     # Initialize guardian
     if 'guardian' not in st.session_state:
         st.session_state.guardian = ApexComplianceGuardian()
@@ -1385,11 +1754,11 @@ def main():
                 volume_change = ((avg_recent - avg_older) / avg_older * 100) if avg_older > 0 else 0
                 
                 if volume_change > 20:
-                    st.success(f"📈 Volume Surge: +{volume_change:.1f}%")
+                    st.success(f" Volume Surge: +{volume_change:.1f}%")
                 elif volume_change < -20:
-                    st.warning(f"📉 Volume Drop: {volume_change:.1f}%")
+                    st.warning(f" Volume Drop: {volume_change:.1f}%")
                 else:
-                    st.info(f"📊 Volume Stable: {volume_change:+.1f}%")
+                    st.info(f"Volume Stable: {volume_change:+.1f}%")
     
     # Alerts panel
     create_alerts_panel()
