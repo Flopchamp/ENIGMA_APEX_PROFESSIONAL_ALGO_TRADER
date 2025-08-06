@@ -1,5 +1,12 @@
-# Core dependencies for Enigma-Apex Prop Trading Panel
+# 🛡️ Apex Compliance Guardian - Complete Requirements
+# For both local development and Streamlit Cloud deployment
 # Python 3.11+ required
+
+# Streamlit web interface dependencies
+streamlit>=1.28.0
+plotly>=5.15.0
+pandas>=2.0.0
+numpy>=1.24.0
 
 # OCR and Image Processing
 easyocr>=1.7.0
@@ -7,7 +14,6 @@ pytesseract>=0.3.10
 opencv-python>=4.8.0
 mss>=9.0.1
 Pillow>=10.0.0
-numpy>=1.24.0
 
 # Web Server and API
 fastapi>=0.104.0
@@ -25,26 +31,21 @@ aiosqlite>=0.19.0
 sqlalchemy>=2.0.0
 
 # Scientific Computing
-pandas>=2.0.0
 scipy>=1.11.0
 
 # Utilities
 python-dotenv>=1.0.0
 pydantic>=2.4.0
 httpx>=0.25.0
-asyncio-mqtt>=0.13.0
+requests>=2.28.0
+psutil>=5.9.0
 
-# Development and Testing
+# Development and Testing (optional for cloud deployment)
 pytest>=7.4.0
 pytest-asyncio>=0.21.0
-selenium>=4.15.0
-webdriver-manager>=4.0.0
-black>=23.0.0
-mypy>=1.6.0
 
-# Windows-specific dependencies
-pywin32>=306 ; sys_platform == "win32"
-winsound>=0.37 ; sys_platform == "win32"
-
-# NinjaTrader Integration
-pythonnet>=3.0.0
+# Note: Some dependencies are excluded for Streamlit Cloud compatibility:
+# - selenium, webdriver-manager (browser automation not needed)
+# - pywin32, winsound (Windows-specific, not available on cloud)
+# - pythonnet (Windows/.NET specific)
+# - asyncio-mqtt (may cause issues in cloud environment)

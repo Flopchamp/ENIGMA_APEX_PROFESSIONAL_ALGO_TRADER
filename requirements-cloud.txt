@@ -1,0 +1,9 @@
+# 🛡️ Streamlit Cloud Optimized Requirements
+# Minimal dependencies for cloud deployment
+
+streamlit==1.28.0
+plotly==5.17.0
+pandas==2.1.1
+numpy==1.24.3
+requests==2.31.0
+psutil==5.9.5

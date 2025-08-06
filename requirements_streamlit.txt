@@ -1,17 +1,17 @@
 # 🛡️ Apex Compliance Guardian - Streamlit Requirements
-# Modern web-based interface dependencies
+# Modern web-based interface dependencies for Streamlit Cloud
 
-streamlit>=1.47.0
-plotly>=6.0.0
+# Core Streamlit dependencies
+streamlit>=1.28.0
+plotly>=5.15.0
 pandas>=2.0.0
-numpy>=1.20.0
+numpy>=1.24.0
+
+# Data visualization and analysis
+plotly-express>=0.4.1
 
 # Optional: For enhanced features
 requests>=2.28.0
 psutil>=5.9.0
 
-# For data persistence
-sqlite3  # Built-in with Python
-
-# For configuration
-configparser>=5.3.0
+# Note: sqlite3, json, time, random, logging, os, base64, io are built-in Python modules
