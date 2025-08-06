@@ -58,7 +58,7 @@ ENIGMA_APEX_PROFESSIONAL_CLIENT_PACKAGE/
 │       └── 🤖 EnigmaApexAutoTrader.cs              # Automated trading strategy
 
 └── 📁 system/
-    ├── 🛡️ apex_compliance_guardian_streamlit.py    # Main application (ENHANCED)
+    ├─www─ 🛡️ apex_compliance_guardian_streamlit.py    # Main application (ENHANCED)
     ├── 🌐 enhanced_websocket_server.py             # WebSocket communication
     ├── 🤖 chatgpt_agent_integration.py             # AI agent integration
     ├── 📸 ocr_enigma_reader.py                     # Screen reading system

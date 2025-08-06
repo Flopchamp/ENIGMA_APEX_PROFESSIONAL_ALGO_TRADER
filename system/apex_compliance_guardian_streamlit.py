@@ -14,10 +14,30 @@ import json
 import time
 import random
 import logging
+import os
 from dataclasses import dataclass, asdict
 from typing import Dict, List, Optional, Tuple
 import sqlite3
 import base64
+
+# Import production configuration manager
+try:
+    from production_config_manager import (
+        load_production_config, get_all_configs, ProductionConfigManager, create_production_environment,
+        TradingPlatformConfig, AlgoBarConfig, ApexComplianceConfig, NotificationConfig
+    )
+    PRODUCTION_CONFIG_AVAILABLE = True
+except ImportError:
+    st.error("⚠️ Production configuration manager not found. Some features may be limited.")
+    # Fallback to basic configs
+    @dataclass
+    class TradingPlatformConfig:
+        ninjatrader_enabled: bool = True
+        tradovate_enabled: bool = True
+        ib_enabled: bool = True
+        binance_enabled: bool = True
+    PRODUCTION_CONFIG_AVAILABLE = False
+
 import io
 
 # Page configuration
@@ -1349,6 +1369,11 @@ def create_sidebar():
     if monitoring_enabled != st.session_state.monitoring_active:
         st.session_state.monitoring_active = monitoring_enabled
         if monitoring_enabled:
+            guardian.add_alert("🟢 Real-time monitoring STARTED", "SUCCESS")
+        else:
+            guardian.add_alert("🔴 Real-time monitoring STOPPED", "INFO")
+        st.session_state.monitoring_active = monitoring_enabled
+        if monitoring_enabled:
             guardian.add_alert("🚀 Real-time monitoring STARTED", "SUCCESS")
         else:
             guardian.add_alert("🛑 Real-time monitoring STOPPED", "WARNING")
@@ -1382,6 +1407,10 @@ def create_sidebar():
     })
     
     if st.sidebar.button("🧪 Test Notifications"):
+        guardian.add_alert("🧪 Testing notification system...", "INFO")
+        guardian.add_alert("✅ SUCCESS: Notifications working!", "SUCCESS")
+        guardian.add_alert("⚠️ WARNING: Test warning message", "WARNING")
+        guardian.add_alert("🚨 ERROR: Test error message", "ERROR")
         guardian.add_alert("🧪 Notification test - System working correctly!", "WARNING", enable_notifications=True)
 
 def create_main_dashboard():
@@ -1850,6 +1879,254 @@ def main():
         <p><em>AlgoBars: Price-Movement Based | No Time Distortion | No Repainting | WYSIWYG Principle</em></p>
         <p><em>Tide = Macro Trends | Wave = Intermediate Structure | Ripple = Micro Entries</em></p>
         <p><em>Always test with demo accounts first. Never risk more than you can afford to lose.</em></p>
+    </div>
+    """, unsafe_allow_html=True)
+
+def create_alerts_panel():
+    """Create alerts and notifications panel"""
+    st.markdown("### 🚨 Alert System")
+    
+    # Alert Statistics
+    if 'alerts' in st.session_state and st.session_state.alerts:
+        alerts = st.session_state.alerts
+        
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            total_alerts = len(alerts)
+            st.metric("Total Alerts", total_alerts)
+        
+        with col2:
+            error_count = sum(1 for alert in alerts if alert['level'] == 'ERROR')
+            st.metric("🚨 Errors", error_count)
+        
+        with col3:
+            warning_count = sum(1 for alert in alerts if alert['level'] == 'WARNING')
+            st.metric("⚠️ Warnings", warning_count)
+        
+        with col4:
+            success_count = sum(1 for alert in alerts if alert['level'] == 'SUCCESS')
+            st.metric("✅ Success", success_count)
+        
+        # Recent Alerts Feed
+        st.markdown("#### 📋 Recent Alerts (Last 20)")
+        
+        for alert in alerts[-20:]:
+            level_colors = {
+                'ERROR': '🚨',
+                'WARNING': '⚠️',
+                'SUCCESS': '✅',
+                'INFO': 'ℹ️'
+            }
+            
+            icon = level_colors.get(alert['level'], 'ℹ️')
+            
+            # Create colored alert based on level
+            if alert['level'] == 'ERROR':
+                st.error(f"{icon} [{alert['timestamp']}] {alert['message']}")
+            elif alert['level'] == 'WARNING':
+                st.warning(f"{icon} [{alert['timestamp']}] {alert['message']}")
+            elif alert['level'] == 'SUCCESS':
+                st.success(f"{icon} [{alert['timestamp']}] {alert['message']}")
+            else:
+                st.info(f"{icon} [{alert['timestamp']}] {alert['message']}")
+                
+        # Clear alerts button
+        if st.button("🗑️ Clear All Alerts"):
+            st.session_state.alerts = []
+            st.rerun()
+    else:
+        st.info("No alerts yet. Start monitoring to see system alerts.")
+
+def main():
+    """Main Streamlit application - Demo ready"""
+    
+    # Enhanced CSS for notification styling
+    st.markdown("""
+    <style>
+    /* Enhanced notification styling */
+    .flash-error {
+        background: linear-gradient(135deg, #ff4b4b15, #ff4b4b25);
+        border-left: 5px solid #ff4b4b;
+        padding: 10px 15px;
+        margin: 8px 0;
+        border-radius: 8px;
+        animation: flashAlert 0.5s ease-in-out 2;
+        box-shadow: 0 2px 4px rgba(255, 75, 75, 0.2);
+    }
+    
+    .flash-warning {
+        background: linear-gradient(135deg, #ff8c0015, #ff8c0025);
+        border-left: 5px solid #ff8c00;
+        padding: 10px 15px;
+        margin: 8px 0;
+        border-radius: 8px;
+        animation: flashAlert 0.5s ease-in-out 2;
+        box-shadow: 0 2px 4px rgba(255, 140, 0, 0.2);
+    }
+    
+    .flash-success {
+        background: linear-gradient(135deg, #00d08415, #00d08425);
+        border-left: 5px solid #00d084;
+        padding: 10px 15px;
+        margin: 8px 0;
+        border-radius: 8px;
+        animation: flashAlert 0.5s ease-in-out 2;
+        box-shadow: 0 2px 4px rgba(0, 208, 132, 0.2);
+    }
+    
+    .flash-info {
+        background: linear-gradient(135deg, #0066cc15, #0066cc25);
+        border-left: 5px solid #0066cc;
+        padding: 10px 15px;
+        margin: 8px 0;
+        border-radius: 8px;
+        animation: flashAlert 0.5s ease-in-out 1;
+        box-shadow: 0 2px 4px rgba(0, 102, 204, 0.2);
+    }
+    
+    @keyframes flashAlert {
+        0% { 
+            transform: scale(0.98);
+            opacity: 0.8;
+        }
+        50% { 
+            transform: scale(1.02);
+            opacity: 1;
+        }
+        100% { 
+            transform: scale(1);
+            opacity: 1;
+        }
+    }
+    
+    /* Custom metric styling */
+    .metric-card {
+        background: white;
+        padding: 15px;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        text-align: center;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # Initialize guardian with demo configuration
+    if 'guardian' not in st.session_state:
+        st.session_state.guardian = ApexComplianceGuardian()
+        
+    guardian = st.session_state.guardian
+    
+    # Auto-update when monitoring is active
+    if st.session_state.get('monitoring_active', False):
+        guardian.simulate_market_data()
+        guardian.check_compliance()
+        
+        # Auto-refresh every 2 seconds
+        time.sleep(0.1)
+        st.rerun()
+    
+    # Create sidebar
+    create_sidebar()
+    
+    # Main content
+    create_main_dashboard()
+    
+    # P&L Performance Section
+    st.markdown("### 📊 Performance Analytics")
+    create_pnl_performance_chart(guardian)
+    
+    # Risk Assessment Section
+    create_risk_gauges(guardian)
+    
+    # AlgoBar Charts
+    st.markdown("### 📈 AlgoBox AlgoBar Charts")
+    
+    # Chart type tabs
+    tab1, tab2, tab3 = st.tabs(["🌊 Tide Chart (Macro)", "📊 Wave Chart (Intermediate)", "💧 Ripple Chart (Micro)"])
+    
+    with tab1:
+        st.markdown("#### Tide Chart - Macro Trend Analysis")
+        chart = create_algobar_chart(guardian, "Tide")
+        if chart:
+            st.plotly_chart(chart, use_container_width=True)
+        
+        # Market structure analysis
+        st.markdown("#### Market Structure Analysis")
+        create_market_structure_analysis(guardian)
+        
+    with tab2:
+        st.markdown("#### Wave Chart - Intermediate Structure")
+        chart = create_algobar_chart(guardian, "Wave")
+        if chart:
+            st.plotly_chart(chart, use_container_width=True)
+            
+        # Wave-specific metrics
+        bars = guardian.algo_engine.get_recent_bars(30)
+        if bars:
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                avg_vol = sum(bar['volume'] for bar in bars[-10:]) / 10
+                st.metric("Avg Volume (10 bars)", f"{avg_vol:.0f}")
+            with col2:
+                total_delta = sum(bar['delta'] for bar in bars[-10:])
+                st.metric("Net Delta (10 bars)", f"{total_delta:+d}")
+            with col3:
+                speed_trend = len([bar for bar in bars[-5:] if bar['market_speed'] in ['Fast', 'Very Fast']])
+                st.metric("Fast Bars (Last 5)", speed_trend)
+            
+    with tab3:
+        st.markdown("#### Ripple Chart - Micro Entry Analysis")
+        chart = create_algobar_chart(guardian, "Ripple")
+        if chart:
+            st.plotly_chart(chart, use_container_width=True)
+            
+        # Ripple-specific analysis
+        bars = guardian.algo_engine.get_recent_bars(20)
+        if bars:
+            st.markdown("##### Micro Structure Signals")
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # Recent bar analysis
+                if len(bars) >= 3:
+                    last_3_bars = bars[-3:]
+                    bullish_momentum = sum(1 for bar in last_3_bars if bar['is_bullish'])
+                    
+                    if bullish_momentum >= 2:
+                        st.success("🟢 Bullish Momentum: 3-bar trend")
+                    elif bullish_momentum <= 1:
+                        st.error("🔴 Bearish Momentum: 3-bar trend")
+                    else:
+                        st.warning("🟡 Mixed Signals: No clear trend")
+                        
+            with col2:
+                # Volume profile
+                recent_volumes = [bar['volume'] for bar in bars[-5:]]
+                avg_recent = sum(recent_volumes) / len(recent_volumes) if recent_volumes else 0
+                older_volumes = [bar['volume'] for bar in bars[-10:-5]] if len(bars) >= 10 else []
+                avg_older = sum(older_volumes) / len(older_volumes) if older_volumes else avg_recent
+                
+                volume_change = ((avg_recent - avg_older) / avg_older * 100) if avg_older > 0 else 0
+                
+                if volume_change > 20:
+                    st.success(f"📈 Volume Surge: +{volume_change:.1f}%")
+                elif volume_change < -20:
+                    st.warning(f"📉 Volume Drop: {volume_change:.1f}%")
+                else:
+                    st.info(f"📊 Volume Stable: {volume_change:+.1f}%")
+    
+    # Alerts panel
+    create_alerts_panel()
+    
+    # Footer
+    st.markdown("---")
+    st.markdown("""
+    <div style='text-align: center; color: #666; padding: 20px;'>
+        <p>🛡️ <strong>Enigma Apex Professional Trading System</strong> - Demo Mode</p>
+        <p><em>AlgoBars: Price-Movement Based | No Time Distortion | No Repainting | WYSIWYG Principle</em></p>
+        <p><em>Tide = Macro Trends | Wave = Intermediate Structure | Ripple = Micro Entries</em></p>
+        <p><em>🎯 Perfect for prop firm evaluation practice and trading education!</em></p>
     </div>
     """, unsafe_allow_html=True)
 
