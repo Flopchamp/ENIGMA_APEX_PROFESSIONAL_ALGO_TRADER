@@ -54,3 +54,18 @@
 2025-08-06 15:45:18,260 - INFO - ERROR: \U0001f512 TRADING LOCKED OUT for 24 hours
 2025-08-06 15:45:18,261 - INFO - ERROR: \u23f0 Lockout until: 2025-08-07 15:45 EST
 2025-08-06 15:45:19,338 - INFO - SUCCESS: \U0001f4be Settings saved successfully
+2025-08-06 15:47:14,075 - INFO - INFO: \U0001f4ca AlgoBar size updated to 5 ticks
+2025-08-06 15:49:51,853 - INFO - INFO: \U0001f3af Safety ratio updated to 40%
+2025-08-06 15:49:53,569 - INFO - INFO: \U0001f3af Safety ratio updated to 15%
+2025-08-06 15:49:54,320 - INFO - INFO: \U0001f3af Safety ratio updated to 40%
+2025-08-06 15:49:54,600 - INFO - INFO: \U0001f3af Safety ratio updated to 45%
+2025-08-06 15:49:55,861 - INFO - INFO: \U0001f3af Safety ratio updated to 20%
+2025-08-06 15:49:57,843 - INFO - INFO: \U0001f3af Safety ratio updated to 90%
+2025-08-06 15:49:58,661 - INFO - INFO: \U0001f3af Safety ratio updated to 75%
+2025-08-06 15:50:21,419 - INFO - INFO: \U0001f3af Safety ratio updated to 25%
+2025-08-06 15:50:21,816 - INFO - INFO: \U0001f3af Safety ratio updated to 15%
+2025-08-06 15:50:22,846 - INFO - INFO: \U0001f3af Safety ratio updated to 15%
+2025-08-06 15:50:22,848 - INFO - INFO: \U0001f4ca AlgoBar size updated to 12 ticks
+2025-08-06 15:50:30,362 - INFO - INFO: \U0001f3af Safety ratio updated to 15%
+2025-08-06 15:50:30,379 - INFO - SUCCESS: \U0001f4be Settings saved successfully
+2025-08-06 15:50:30,446 - INFO - INFO: \U0001f3af Safety ratio updated to 15%

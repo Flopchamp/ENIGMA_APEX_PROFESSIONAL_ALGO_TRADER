@@ -275,9 +275,28 @@ class ApexComplianceGuardian:
         # Generate realistic price movement
         base_price = 4580.25  # ES futures example
         
-        # Market volatility simulation
+        # Market volatility simulation with trends
         volatility = random.uniform(0.5, 2.0)
-        price_change = random.gauss(0, volatility)
+        
+        # Add trend bias
+        if not hasattr(self, 'trend_direction'):
+            self.trend_direction = random.choice([1, -1])
+            self.trend_strength = random.uniform(0.1, 0.3)
+            self.trend_duration = random.randint(50, 200)
+            self.trend_counter = 0
+            
+        # Change trend occasionally
+        self.trend_counter += 1
+        if self.trend_counter >= self.trend_duration:
+            self.trend_direction = random.choice([1, -1])
+            self.trend_strength = random.uniform(0.1, 0.3)
+            self.trend_duration = random.randint(50, 200)
+            self.trend_counter = 0
+        
+        # Calculate price change with trend bias
+        trend_component = self.trend_direction * self.trend_strength
+        noise_component = random.gauss(0, volatility)
+        price_change = trend_component + noise_component
         
         # Current price with trend
         if not hasattr(self, 'current_price'):
@@ -285,16 +304,36 @@ class ApexComplianceGuardian:
             
         self.current_price += price_change
         
+        # Ensure realistic price bounds
+        self.current_price = max(4500, min(4700, self.current_price))
+        
         # Volume simulation (heavier during market hours)
         current_time = datetime.now()
         market_open = current_time.replace(hour=9, minute=30)
         market_close = current_time.replace(hour=16, minute=0)
         
         is_market_hours = market_open <= current_time <= market_close
-        volume = random.randint(50, 500) if is_market_hours else random.randint(10, 100)
         
-        # Delta (order flow) simulation
-        delta = random.randint(-volume//2, volume//2)
+        # More realistic volume patterns
+        if is_market_hours:
+            # Higher volume during first and last hour
+            hour = current_time.hour
+            if hour in [9, 15]:  # Opening and closing hours
+                volume = random.randint(200, 800)
+            elif hour in [10, 14]:  # Active hours
+                volume = random.randint(100, 400)
+            else:  # Mid-day
+                volume = random.randint(50, 200)
+        else:
+            volume = random.randint(5, 50)  # Overnight/after hours
+        
+        # Delta (order flow) simulation with bias
+        if price_change > 0:
+            # Bullish bias in delta
+            delta = random.randint(int(volume * 0.3), volume)
+        else:
+            # Bearish bias in delta
+            delta = random.randint(-volume, int(-volume * 0.3))
         
         # Add tick to AlgoBar engine
         self.algo_engine.add_tick(
@@ -310,26 +349,59 @@ class ApexComplianceGuardian:
     def update_trade_data(self):
         """Update trade data with realistic simulation"""
         # Simulate P&L changes based on position and market movement
-        if hasattr(self, 'last_price'):
+        if hasattr(self, 'last_price') and hasattr(self, 'current_price'):
             price_diff = self.current_price - self.last_price
             if self.trade_data.open_positions > 0:
-                pnl_change = price_diff * self.trade_data.open_positions * 50  # $50 per point ES
+                # ES futures: $50 per point per contract
+                pnl_change = price_diff * self.trade_data.open_positions * 50
                 self.trade_data.daily_pnl += pnl_change
                 
-        self.last_price = self.current_price
+        if hasattr(self, 'current_price'):
+            self.last_price = self.current_price
         
-        # Update max daily profit
+        # Update max daily profit for drawdown calculation
         if self.trade_data.daily_pnl > self.trade_data.max_daily_profit:
             self.trade_data.max_daily_profit = self.trade_data.daily_pnl
             
-        # Calculate trailing drawdown
+        # Calculate trailing drawdown from high water mark
         if self.trade_data.max_daily_profit > 0:
             current_drawdown = (self.trade_data.max_daily_profit - self.trade_data.daily_pnl) / self.trade_data.account_balance * 100
             self.trade_data.drawdown_from_high = max(0, current_drawdown)
+        
+        # Update total P&L (simulate account growth over time)
+        if not hasattr(self, 'total_pnl_initialized'):
+            self.trade_data.total_pnl = 1500.0  # Starting with some historical profit
+            self.total_pnl_initialized = True
+        
+        # Add daily P&L to total (simplified)
+        if self.trade_data.daily_pnl != 0:
+            self.trade_data.total_pnl = max(0, self.trade_data.total_pnl + (self.trade_data.daily_pnl * 0.01))
             
-        # Simulate position changes
-        if random.random() < 0.02:  # 2% chance of position change
-            self.trade_data.open_positions = random.randint(0, self.rules.max_total_contracts + 2)
+        # Simulate position changes based on market activity
+        if random.random() < 0.03:  # 3% chance of position change
+            old_positions = self.trade_data.open_positions
+            
+            # Simulate realistic position changes
+            if old_positions == 0:
+                # Enter new position
+                self.trade_data.open_positions = random.randint(1, min(5, self.rules.max_total_contracts))
+                self.add_alert(f"📈 NEW POSITION: {self.trade_data.open_positions} contracts @ ${self.current_price:.2f}", "INFO")
+            elif random.random() < 0.3:
+                # Close all positions
+                self.trade_data.open_positions = 0
+                pnl_on_close = (self.current_price - getattr(self, 'entry_price', self.current_price)) * old_positions * 50
+                self.add_alert(f"🔒 POSITION CLOSED: {old_positions} contracts, P&L: ${pnl_on_close:.2f}", "SUCCESS" if pnl_on_close > 0 else "WARNING")
+            else:
+                # Adjust position size
+                self.trade_data.open_positions = max(0, min(self.rules.max_total_contracts, 
+                                                           old_positions + random.randint(-2, 2)))
+                
+        # Store entry price for P&L calculation
+        if self.trade_data.open_positions > 0 and not hasattr(self, 'entry_price'):
+            self.entry_price = self.current_price
+        elif self.trade_data.open_positions == 0:
+            if hasattr(self, 'entry_price'):
+                delattr(self, 'entry_price')
             
         self.trade_data.last_update = datetime.now()
         
@@ -548,7 +620,8 @@ def create_algobar_chart(guardian: ApexComplianceGuardian, chart_type: str = "Ti
             y=df['volume'],
             name='Volume',
             marker_color='rgba(128, 128, 128, 0.5)',
-            yaxis='y2'
+            yaxis='y2',
+            opacity=0.6
         ))
     
     # Add delta (order flow) if enabled
@@ -559,7 +632,32 @@ def create_algobar_chart(guardian: ApexComplianceGuardian, chart_type: str = "Ti
             y=df['delta'],
             name='Cumulative Delta',
             marker_color=delta_colors,
-            yaxis='y3'
+            yaxis='y3',
+            opacity=0.7
+        ))
+    
+    # Add market structure lines
+    if len(bars) > 10:
+        # Support and resistance levels
+        highs = df['high'].rolling(window=10).max()
+        lows = df['low'].rolling(window=10).min()
+        
+        fig.add_trace(go.Scatter(
+            x=df['datetime'],
+            y=highs,
+            mode='lines',
+            name='Resistance',
+            line=dict(color='red', width=1, dash='dash'),
+            opacity=0.5
+        ))
+        
+        fig.add_trace(go.Scatter(
+            x=df['datetime'],
+            y=lows,
+            mode='lines',
+            name='Support',
+            line=dict(color='green', width=1, dash='dash'),
+            opacity=0.5
         ))
     
     # Chart layout with AlgoBox styling
@@ -590,13 +688,18 @@ def create_algobar_chart(guardian: ApexComplianceGuardian, chart_type: str = "Ti
         fig.add_annotation(
             x=df['datetime'].iloc[-1],
             y=latest_bar['high'],
-            text=f"Speed: {latest_bar['market_speed']}<br>Volatility: {latest_bar['volatility']:.2f}%",
+            text=f"Speed: {latest_bar['market_speed']}<br>Volatility: {latest_bar['volatility']:.2f}%<br>Volume: {latest_bar['volume']}<br>Delta: {latest_bar['delta']:+d}",
             showarrow=True,
             arrowhead=2,
             arrowcolor="yellow",
             bgcolor="rgba(0,0,0,0.8)",
             bordercolor="yellow"
         )
+        
+        # Add price level annotations
+        current_price = latest_bar['close']
+        fig.add_hline(y=current_price, line_dash="solid", line_color="cyan", 
+                     annotation_text=f"Current: ${current_price:.2f}")
     
     return fig
 
@@ -617,7 +720,13 @@ def create_market_structure_analysis(guardian: ApexComplianceGuardian):
         fig = px.pie(
             values=speed_counts.values,
             names=speed_counts.index,
-            title="Market Speed Distribution (Last 10 AlgoBars)"
+            title="Market Speed Distribution (Last 10 AlgoBars)",
+            color_discrete_map={
+                'Very Fast': '#ff4444',
+                'Fast': '#ff8800',
+                'Moderate': '#ffff00',
+                'Slow': '#88ff88'
+            }
         )
         fig.update_layout(template="plotly_dark", height=300)
         st.plotly_chart(fig, use_container_width=True)
@@ -631,8 +740,17 @@ def create_market_structure_analysis(guardian: ApexComplianceGuardian):
             y=volatilities,
             mode='lines+markers',
             name='Volatility %',
-            line=dict(color='orange', width=2)
+            line=dict(color='orange', width=2),
+            marker=dict(size=6)
         ))
+        
+        # Add volatility zones
+        avg_vol = sum(volatilities) / len(volatilities) if volatilities else 0
+        fig.add_hline(y=avg_vol, line_dash="dash", line_color="orange", 
+                     annotation_text=f"Avg: {avg_vol:.2f}%")
+        fig.add_hline(y=avg_vol * 2, line_dash="dot", line_color="red", 
+                     annotation_text="High Vol")
+        
         fig.update_layout(
             title="Volatility Trend (Last 20 AlgoBars)",
             yaxis_title="Volatility %",
@@ -648,14 +766,264 @@ def create_market_structure_analysis(guardian: ApexComplianceGuardian):
         
         fig = go.Figure(data=[
             go.Bar(x=['Bullish', 'Bearish'], y=[bullish_count, bearish_count],
-                  marker_color=['green', 'red'])
+                  marker_color=['#00ff88', '#ff4444'],
+                  text=[f'{bullish_count}', f'{bearish_count}'],
+                  textposition='auto')
         ])
         fig.update_layout(
             title="Bull/Bear Distribution (Last 20 AlgoBars)",
             template="plotly_dark",
-            height=300
+            height=300,
+            showlegend=False
         )
         st.plotly_chart(fig, use_container_width=True)
+
+def create_pnl_performance_chart(guardian: ApexComplianceGuardian):
+    """Create comprehensive P&L performance tracking"""
+    # Initialize P&L history in session state
+    if 'pnl_history' not in st.session_state:
+        st.session_state.pnl_history = []
+    
+    # Add current P&L to history
+    current_time = datetime.now()
+    st.session_state.pnl_history.append({
+        'time': current_time,
+        'daily_pnl': guardian.trade_data.daily_pnl,
+        'account_balance': guardian.trade_data.account_balance + guardian.trade_data.daily_pnl,
+        'drawdown': guardian.trade_data.drawdown_from_high,
+        'positions': guardian.trade_data.open_positions,
+        'price': getattr(guardian, 'current_price', 4580.25)
+    })
+    
+    # Keep only last 200 points for performance
+    if len(st.session_state.pnl_history) > 200:
+        st.session_state.pnl_history = st.session_state.pnl_history[-200:]
+    
+    if len(st.session_state.pnl_history) < 2:
+        st.info("📈 Building P&L history... Start monitoring to see performance charts")
+        return
+    
+    # Convert to DataFrame
+    df = pd.DataFrame(st.session_state.pnl_history)
+    df['datetime'] = pd.to_datetime(df['time'])
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        # Daily P&L Chart with Risk Zones
+        fig = go.Figure()
+        
+        # Daily P&L line
+        colors = ['green' if pnl >= 0 else 'red' for pnl in df['daily_pnl']]
+        fig.add_trace(go.Scatter(
+            x=df['datetime'],
+            y=df['daily_pnl'],
+            mode='lines+markers',
+            name='Daily P&L',
+            line=dict(color='cyan', width=2),
+            marker=dict(size=4, color=colors)
+        ))
+        
+        # Risk zones
+        account_balance = guardian.trade_data.account_balance
+        daily_loss_limit = account_balance * guardian.rules.evaluation_max_daily_loss / 100
+        safety_limit = daily_loss_limit * (guardian.rules.safety_ratio / 100)
+        
+        fig.add_hline(y=0, line_dash="solid", line_color="gray", opacity=0.5)
+        fig.add_hline(y=-safety_limit, line_dash="dash", line_color="orange", 
+                     annotation_text=f"Warning Zone: -${safety_limit:,.0f}")
+        fig.add_hline(y=-daily_loss_limit, line_dash="solid", line_color="red", 
+                     annotation_text=f"Danger Zone: -${daily_loss_limit:,.0f}")
+        
+        # Fill risk zones
+        fig.add_hrect(y0=-safety_limit, y1=-daily_loss_limit, 
+                     fillcolor="orange", opacity=0.1, line_width=0)
+        fig.add_hrect(y0=-daily_loss_limit, y1=-daily_loss_limit*2, 
+                     fillcolor="red", opacity=0.1, line_width=0)
+        
+        fig.update_layout(
+            title="📊 Daily P&L with Apex Risk Zones",
+            xaxis_title="Time",
+            yaxis_title="P&L ($)",
+            template="plotly_dark",
+            height=400
+        )
+        st.plotly_chart(fig, use_container_width=True)
+        
+    with col2:
+        # Account Balance Growth
+        fig = go.Figure()
+        
+        fig.add_trace(go.Scatter(
+            x=df['datetime'],
+            y=df['account_balance'],
+            mode='lines+markers',
+            name='Account Balance',
+            line=dict(color='#00ff88', width=3),
+            marker=dict(size=4),
+            fill='tonexty'
+        ))
+        
+        # Add starting balance line
+        fig.add_hline(y=guardian.trade_data.account_balance, line_dash="dash", 
+                     line_color="white", opacity=0.5,
+                     annotation_text=f"Starting: ${guardian.trade_data.account_balance:,.0f}")
+        
+        fig.update_layout(
+            title="💰 Account Balance Growth",
+            xaxis_title="Time",
+            yaxis_title="Balance ($)",
+            template="plotly_dark",
+            height=400
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+def create_risk_gauges(guardian: ApexComplianceGuardian):
+    """Create comprehensive risk assessment gauges"""
+    st.markdown("### 🎯 Risk Assessment Gauges")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        # Daily Loss Risk Gauge
+        daily_loss_pct = abs(guardian.trade_data.daily_pnl) / guardian.trade_data.account_balance * 100
+        max_loss_pct = guardian.rules.evaluation_max_daily_loss
+        risk_pct = min(100, (daily_loss_pct / max_loss_pct) * 100)
+        
+        fig = go.Figure(go.Indicator(
+            mode = "gauge+number+delta",
+            value = risk_pct,
+            domain = {'x': [0, 1], 'y': [0, 1]},
+            title = {'text': "Daily Loss Risk"},
+            delta = {'reference': 0, 'position': "top"},
+            gauge = {
+                'axis': {'range': [None, 100]},
+                'bar': {'color': "darkblue"},
+                'steps': [
+                    {'range': [0, 50], 'color': "lightgray"},
+                    {'range': [50, 80], 'color': "yellow"},
+                    {'range': [80, 100], 'color': "red"}
+                ],
+                'threshold': {
+                    'line': {'color': "red", 'width': 4},
+                    'thickness': 0.75, 
+                    'value': 90
+                }
+            }
+        ))
+        fig.update_layout(height=250, font={'color': "white"})
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Risk level text
+        if risk_pct < 50:
+            st.success(f"🟢 Safe Zone: {risk_pct:.1f}%")
+        elif risk_pct < 80:
+            st.warning(f"🟡 Caution: {risk_pct:.1f}%")
+        else:
+            st.error(f"🔴 Danger: {risk_pct:.1f}%")
+        
+    with col2:
+        # Drawdown Risk Gauge
+        dd_risk_pct = min(100, (guardian.trade_data.drawdown_from_high / guardian.rules.evaluation_trailing_threshold) * 100)
+        
+        fig = go.Figure(go.Indicator(
+            mode = "gauge+number+delta",
+            value = dd_risk_pct,
+            domain = {'x': [0, 1], 'y': [0, 1]},
+            title = {'text': "Drawdown Risk"},
+            delta = {'reference': 0, 'position': "top"},
+            gauge = {
+                'axis': {'range': [None, 100]},
+                'bar': {'color': "darkred"},
+                'steps': [
+                    {'range': [0, 50], 'color': "lightgray"},
+                    {'range': [50, 80], 'color': "yellow"},
+                    {'range': [80, 100], 'color': "red"}
+                ],
+                'threshold': {
+                    'line': {'color': "red", 'width': 4},
+                    'thickness': 0.75, 
+                    'value': 90
+                }
+            }
+        ))
+        fig.update_layout(height=250, font={'color': "white"})
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Drawdown text
+        if dd_risk_pct < 50:
+            st.success(f"🟢 Safe: {guardian.trade_data.drawdown_from_high:.2f}%")
+        elif dd_risk_pct < 80:
+            st.warning(f"🟡 Watch: {guardian.trade_data.drawdown_from_high:.2f}%")
+        else:
+            st.error(f"🔴 Critical: {guardian.trade_data.drawdown_from_high:.2f}%")
+        
+    with col3:
+        # Position Size Risk
+        pos_risk_pct = min(100, (guardian.trade_data.open_positions / guardian.rules.max_total_contracts) * 100)
+        
+        fig = go.Figure(go.Indicator(
+            mode = "gauge+number+delta",
+            value = pos_risk_pct,
+            domain = {'x': [0, 1], 'y': [0, 1]},
+            title = {'text': "Position Size Risk"},
+            delta = {'reference': 0, 'position': "top"},
+            gauge = {
+                'axis': {'range': [None, 100]},
+                'bar': {'color': "darkorange"},
+                'steps': [
+                    {'range': [0, 70], 'color': "lightgray"},
+                    {'range': [70, 90], 'color': "yellow"},
+                    {'range': [90, 100], 'color': "red"}
+                ],
+                'threshold': {
+                    'line': {'color': "red", 'width': 4},
+                    'thickness': 0.75, 
+                    'value': 95
+                }
+            }
+        ))
+        fig.update_layout(height=250, font={'color': "white"})
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Position text
+        st.info(f"📊 {guardian.trade_data.open_positions}/{guardian.rules.max_total_contracts} contracts")
+        
+    with col4:
+        # Overall Safety Score
+        safety_score = guardian.rules.safety_ratio
+        
+        fig = go.Figure(go.Indicator(
+            mode = "gauge+number+delta",
+            value = safety_score,
+            domain = {'x': [0, 1], 'y': [0, 1]},
+            title = {'text': "Safety Score"},
+            delta = {'reference': 80, 'position': "top"},
+            gauge = {
+                'axis': {'range': [None, 100]},
+                'bar': {'color': "darkgreen"},
+                'steps': [
+                    {'range': [0, 50], 'color': "red"},
+                    {'range': [50, 80], 'color': "yellow"},
+                    {'range': [80, 100], 'color': "lightgreen"}
+                ],
+                'threshold': {
+                    'line': {'color': "green", 'width': 4},
+                    'thickness': 0.75, 
+                    'value': 90
+                }
+            }
+        ))
+        fig.update_layout(height=250, font={'color': "white"})
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Safety text
+        if safety_score >= 80:
+            st.success(f"🛡️ High Safety: {safety_score}%")
+        elif safety_score >= 60:
+            st.warning(f"⚠️ Moderate: {safety_score}%")
+        else:
+            st.error(f"🚨 Low Safety: {safety_score}%")
 
 def create_sidebar():
     """Create the configuration sidebar"""
@@ -776,7 +1144,6 @@ def create_main_dashboard():
     <div style='text-align: center; padding: 20px; background: linear-gradient(90deg, #1e3c72 0%, #2a5298 100%); border-radius: 10px; margin-bottom: 20px;'>
         <h1 style='color: white; margin: 0;'>🛡️ APEX COMPLIANCE GUARDIAN + ALGOBOX ALGOBARS</h1>
         <h3 style='color: #e8f4f8; margin: 5px 0;'>Training Wheels for Prop Traders + Price-Based AlgoBar Analysis</h3>
-        <p style='color: #b8d4e3; margin: 0;'>FOR: Harrison Aloo & Michael Canfield | Platform: Tradovate + AlgoBox Technology</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -940,29 +1307,89 @@ def main():
     # Main content
     create_main_dashboard()
     
+    # P&L Performance Section
+    st.markdown("### 📈 Performance Analytics")
+    create_pnl_performance_chart(guardian)
+    
+    # Risk Assessment Section
+    create_risk_gauges(guardian)
+    
     # AlgoBar Charts
-    st.markdown("### 📈 AlgoBox AlgoBar Charts")
+    st.markdown("### � AlgoBox AlgoBar Charts")
     
     # Chart type tabs
-    tab1, tab2, tab3 = st.tabs(["🌊 Tide Chart", "📊 Wave Chart", "💧 Ripple Chart"])
+    tab1, tab2, tab3 = st.tabs(["🌊 Tide Chart (Macro)", "📊 Wave Chart (Intermediate)", "💧 Ripple Chart (Micro)"])
     
     with tab1:
+        st.markdown("#### Tide Chart - Macro Trend Analysis")
         chart = create_algobar_chart(guardian, "Tide")
         if chart:
             st.plotly_chart(chart, use_container_width=True)
         
         # Market structure analysis
+        st.markdown("#### Market Structure Analysis")
         create_market_structure_analysis(guardian)
         
     with tab2:
+        st.markdown("#### Wave Chart - Intermediate Structure")
         chart = create_algobar_chart(guardian, "Wave")
         if chart:
             st.plotly_chart(chart, use_container_width=True)
             
+        # Wave-specific metrics
+        bars = guardian.algo_engine.get_recent_bars(30)
+        if bars:
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                avg_vol = sum(bar['volume'] for bar in bars[-10:]) / 10
+                st.metric("Avg Volume (10 bars)", f"{avg_vol:.0f}")
+            with col2:
+                total_delta = sum(bar['delta'] for bar in bars[-10:])
+                st.metric("Net Delta (10 bars)", f"{total_delta:+d}")
+            with col3:
+                speed_trend = len([bar for bar in bars[-5:] if bar['market_speed'] in ['Fast', 'Very Fast']])
+                st.metric("Fast Bars (Last 5)", speed_trend)
+            
     with tab3:
+        st.markdown("#### Ripple Chart - Micro Entry Analysis")
         chart = create_algobar_chart(guardian, "Ripple")
         if chart:
             st.plotly_chart(chart, use_container_width=True)
+            
+        # Ripple-specific analysis
+        bars = guardian.algo_engine.get_recent_bars(20)
+        if bars:
+            st.markdown("##### Micro Structure Signals")
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # Recent bar analysis
+                if len(bars) >= 3:
+                    last_3_bars = bars[-3:]
+                    bullish_momentum = sum(1 for bar in last_3_bars if bar['is_bullish'])
+                    
+                    if bullish_momentum >= 2:
+                        st.success("🟢 Bullish Momentum: 3-bar trend")
+                    elif bullish_momentum <= 1:
+                        st.error("🔴 Bearish Momentum: 3-bar trend")
+                    else:
+                        st.warning("🟡 Mixed Signals: No clear trend")
+                        
+            with col2:
+                # Volume profile
+                recent_volumes = [bar['volume'] for bar in bars[-5:]]
+                avg_recent = sum(recent_volumes) / len(recent_volumes) if recent_volumes else 0
+                older_volumes = [bar['volume'] for bar in bars[-10:-5]] if len(bars) >= 10 else []
+                avg_older = sum(older_volumes) / len(older_volumes) if older_volumes else avg_recent
+                
+                volume_change = ((avg_recent - avg_older) / avg_older * 100) if avg_older > 0 else 0
+                
+                if volume_change > 20:
+                    st.success(f"📈 Volume Surge: +{volume_change:.1f}%")
+                elif volume_change < -20:
+                    st.warning(f"📉 Volume Drop: {volume_change:.1f}%")
+                else:
+                    st.info(f"📊 Volume Stable: {volume_change:+.1f}%")
     
     # Alerts panel
     create_alerts_panel()
@@ -973,6 +1400,7 @@ def main():
     <div style='text-align: center; color: #666; padding: 20px;'>
         <p>🛡️ <strong>Apex Compliance Guardian + AlgoBox AlgoBars</strong> - Training Wheels + Price-Based Analysis</p>
         <p><em>AlgoBars: Price-Movement Based | No Time Distortion | No Repainting | WYSIWYG Principle</em></p>
+        <p><em>Tide = Macro Trends | Wave = Intermediate Structure | Ripple = Micro Entries</em></p>
         <p><em>Always test with demo accounts first. Never risk more than you can afford to lose.</em></p>
     </div>
     """, unsafe_allow_html=True)
