@@ -1,0 +1,67 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enigma-Apex Dashboard</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #1a1a1a; color: #fff; margin: 0; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .header h1 { color: #00ff88; margin: 0; }
+        .back-link { display: inline-block; margin-bottom: 20px; padding: 10px 20px; background: #4a4a4a; color: #fff; text-decoration: none; border-radius: 5px; }
+        .signals-table { width: 100%; border-collapse: collapse; background: #2a2a2a; border-radius: 10px; overflow: hidden; }
+        .signals-table th, .signals-table td { padding: 15px; text-align: left; border-bottom: 1px solid #444; }
+        .signals-table th { background: #333; color: #00ff88; }
+        .bullish { color: #00ff88; }
+        .bearish { color: #ff4444; }
+        .no-signals { text-align: center; padding: 50px; color: #888; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Enigma-Apex Dashboard</h1>
+            <p>Recent Trading Signals</p>
+        </div>
+        
+        <a href="/" class="back-link">← Back to Signal Input</a>
+        
+        {% if signals %}
+        <table class="signals-table">
+            <thead>
+                <tr>
+                    <th>Signal Type</th>
+                    <th>Power Score</th>
+                    <th>Confidence</th>
+                    <th>Timeframe</th>
+                    <th>Symbol</th>
+                    <th>Timestamp</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for signal in signals %}
+                <tr>
+                    <td class="{{ signal[0] }}">
+                        {{ '🟢 BULLISH' if signal[0] == 'bullish' else '🔴 BEARISH' }}
+                    </td>
+                    <td>{{ signal[1] }}%</td>
+                    <td>{{ signal[2] }}</td>
+                    <td>{{ signal[3] }}</td>
+                    <td>{{ signal[4] }}</td>
+                    <td>{{ signal[5] }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="no-signals">
+            <h3>No signals found</h3>
+            <p>Start by submitting your first signal!</p>
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html>
+    

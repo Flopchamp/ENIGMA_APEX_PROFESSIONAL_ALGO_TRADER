@@ -1,0 +1,29 @@
+{
+  "safety_ratio": 75,
+  "platform": "Tradovate",
+  "rules": {
+    "evaluation_target": 8.0,
+    "evaluation_max_daily_loss": 5.0,
+    "evaluation_trailing_threshold": 5.0,
+    "evaluation_minimum_days": 5,
+    "evaluation_max_days": 30,
+    "pa_target": 5.0,
+    "pa_max_daily_loss": 5.0,
+    "pa_trailing_threshold": 5.0,
+    "pa_minimum_days": 5,
+    "live_max_daily_loss": 5.0,
+    "live_trailing_threshold": 5.0,
+    "live_scaling_enabled": true,
+    "consistency_rule": 30.0,
+    "consistency_applies_to": "all_phases",
+    "news_restricted_trading": true,
+    "news_buffer_minutes": 15,
+    "weekend_holding_allowed": false,
+    "max_contracts_per_trade": 10,
+    "max_total_contracts": 20,
+    "platform": "Tradovate",
+    "safety_ratio": 75,
+    "violation_lockout_hours": 24,
+    "max_violations_allowed": 0
+  }
+}

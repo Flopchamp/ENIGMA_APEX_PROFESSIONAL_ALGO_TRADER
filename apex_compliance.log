@@ -1,0 +1,41 @@
+2025-08-06 14:39:33,628 - INFO - INFO: \U0001f6e1\ufe0f Apex Compliance Guardian initialized - Training wheels active
+2025-08-06 14:39:33,668 - INFO - INFO: \U0001f4ca Monitoring Tradovate platform for rule violations
+2025-08-06 14:39:33,709 - INFO - INFO: \u2699\ufe0f Configure safety ratio and start monitoring
+2025-08-06 14:39:48,368 - INFO - INFO: \U0001f3af Risk preset changed to Conservative (90%)
+2025-08-06 14:39:49,396 - INFO - INFO: \U0001f3af Risk preset changed to Moderate (70%)
+2025-08-06 15:02:20,084 - INFO - INFO: \U0001f6e1\ufe0f Apex Compliance Guardian initialized - Training wheels active
+2025-08-06 15:02:20,130 - INFO - INFO: \U0001f4ca Monitoring Tradovate platform for rule violations
+2025-08-06 15:02:20,171 - INFO - INFO: \u2699\ufe0f Configure safety ratio and start monitoring
+2025-08-06 15:02:31,160 - INFO - INFO: \U0001f3af Risk preset changed to Aggressive (50%)
+2025-08-06 15:02:33,338 - INFO - INFO: \U0001f3af Risk preset changed to Moderate (70%)
+2025-08-06 15:02:35,015 - INFO - INFO: \U0001f3af Risk preset changed to Conservative (90%)
+2025-08-06 15:13:46,019 - INFO - INFO: \U0001f3af Risk preset: Conservative (90%)
+2025-08-06 15:13:46,759 - INFO - INFO: \U0001f3af Risk preset: Moderate (70%)
+2025-08-06 15:13:47,283 - INFO - INFO: \U0001f3af Risk preset: Aggressive (50%)
+2025-08-06 15:13:48,202 - INFO - INFO: \U0001f3af Risk preset: Conservative (90%)
+2025-08-06 15:13:48,557 - INFO - INFO: \U0001f3af Risk preset: Moderate (70%)
+2025-08-06 15:13:48,893 - INFO - INFO: \U0001f3af Risk preset: Aggressive (50%)
+2025-08-06 15:14:37,269 - INFO - ERROR: \U0001f6d1 EMERGENCY STOP: Closing all positions immediately
+2025-08-06 15:14:37,269 - INFO - SUCCESS: \u2705 All positions closed successfully
+2025-08-06 15:14:39,090 - INFO - ERROR: \U0001f512 TRADING LOCKED OUT for 24 hours
+2025-08-06 15:14:39,090 - INFO - ERROR: \u23f0 Lockout until: 2025-08-07 15:14 EST
+2025-08-06 15:14:40,194 - INFO - SUCCESS: \U0001f4be Settings saved successfully
+2025-08-06 15:14:41,129 - INFO - SUCCESS: \U0001f4be Settings saved successfully
+2025-08-06 15:14:42,382 - INFO - ERROR: \U0001f512 TRADING LOCKED OUT for 24 hours
+2025-08-06 15:14:42,382 - INFO - ERROR: \u23f0 Lockout until: 2025-08-07 15:14 EST
+2025-08-06 15:14:43,017 - INFO - ERROR: \U0001f6d1 EMERGENCY STOP: Closing all positions immediately
+2025-08-06 15:14:43,018 - INFO - SUCCESS: \u2705 All positions closed successfully
+2025-08-06 15:18:13,509 - INFO - INFO: \U0001f3af Risk preset: Conservative (90%)
+2025-08-06 15:18:19,499 - INFO - INFO: \U0001f3af Risk preset: Moderate (70%)
+2025-08-06 15:18:28,110 - INFO - INFO: \U0001f3af Safety ratio updated to 75%
+2025-08-06 15:19:14,317 - INFO - ERROR: \U0001f6d1 EMERGENCY STOP: Closing all positions immediately
+2025-08-06 15:19:14,318 - INFO - SUCCESS: \u2705 All positions closed successfully
+2025-08-06 15:19:15,640 - INFO - ERROR: \U0001f6d1 EMERGENCY STOP: Closing all positions immediately
+2025-08-06 15:19:15,640 - INFO - SUCCESS: \u2705 All positions closed successfully
+2025-08-06 15:19:16,761 - INFO - ERROR: \U0001f512 TRADING LOCKED OUT for 24 hours
+2025-08-06 15:19:16,762 - INFO - ERROR: \u23f0 Lockout until: 2025-08-07 15:19 EST
+2025-08-06 15:19:17,661 - INFO - SUCCESS: \U0001f4be Settings saved successfully
+2025-08-06 15:19:18,875 - INFO - SUCCESS: \U0001f4be Settings saved successfully
+2025-08-06 15:19:24,717 - INFO - INFO: \U0001f3af Safety ratio updated to 30%
+2025-08-06 15:19:28,421 - INFO - INFO: \U0001f4ca Platform changed to NinjaTrader
+2025-08-06 15:19:44,595 - INFO - INFO: \U0001f4ca Platform changed to MetaTrader
