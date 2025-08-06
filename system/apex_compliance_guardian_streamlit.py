@@ -587,7 +587,7 @@ def create_algobar_chart(guardian: ApexComplianceGuardian, chart_type: str = "Ti
     bars = guardian.algo_engine.get_recent_bars(100)
     
     if not bars:
-        st.info("📊 Start monitoring to see AlgoBar charts")
+        st.info(" Start monitoring to see AlgoBar charts")
         return None
         
     # Convert to DataFrame
@@ -800,7 +800,7 @@ def create_pnl_performance_chart(guardian: ApexComplianceGuardian):
         st.session_state.pnl_history = st.session_state.pnl_history[-200:]
     
     if len(st.session_state.pnl_history) < 2:
-        st.info("📈 Building P&L history... Start monitoring to see performance charts")
+        st.info("Building P&L history... Start monitoring to see performance charts")
         return
     
     # Convert to DataFrame
@@ -1151,11 +1151,11 @@ def create_main_dashboard():
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        if st.button("🚀 START MONITORING" if not st.session_state.monitoring_active else "🛑 STOP MONITORING",
+        if st.button(" START MONITORING" if not st.session_state.monitoring_active else "🛑 STOP MONITORING",
                     type="primary" if not st.session_state.monitoring_active else "secondary"):
             st.session_state.monitoring_active = not st.session_state.monitoring_active
             if st.session_state.monitoring_active:
-                guardian.add_alert("🚀 Compliance + AlgoBar monitoring STARTED", "SUCCESS")
+                guardian.add_alert(" Compliance + AlgoBar monitoring STARTED", "SUCCESS")
             else:
                 guardian.add_alert("🛑 Monitoring STOPPED", "WARNING")
             st.rerun()
@@ -1171,12 +1171,12 @@ def create_main_dashboard():
             st.rerun()
             
     with col4:
-        if st.button("💾 SAVE SETTINGS", type="secondary"):
+        if st.button("SAVE SETTINGS", type="secondary"):
             guardian.save_settings()
             st.rerun()
     
     # Status Indicators
-    st.markdown("### 📊 Real-Time Status")
+    st.markdown("### Real-Time Status")
     
     col1, col2, col3, col4, col5, col6 = st.columns(6)
     
@@ -1207,16 +1207,16 @@ def create_main_dashboard():
             st.metric("Market Speed", "0%", delta="No Data")
         
     with col6:
-        status_text = "🔒 LOCKED OUT" if guardian.trade_data.is_locked_out else "✅ ACTIVE"
+        status_text = " LOCKED OUT" if guardian.trade_data.is_locked_out else "✅ ACTIVE"
         monitoring_status = "🟢 MONITORING" if st.session_state.monitoring_active else "🔴 STOPPED"
         st.metric("Status", status_text)
         st.caption(monitoring_status)
 
 def create_alerts_panel():
     """Create the alerts and violations panel"""
-    st.markdown("### 🚨 Compliance Alerts & Violations")
+    st.markdown("###  Compliance Alerts & Violations")
     
-    tab1, tab2, tab3 = st.tabs(["📢 Recent Alerts", "🚨 Violations", "📊 AlgoBar Analysis"])
+    tab1, tab2, tab3 = st.tabs([" Recent Alerts", "🚨 Violations", "📊 AlgoBar Analysis"])
     
     with tab1:
         if 'alerts' in st.session_state and st.session_state.alerts:
@@ -1308,7 +1308,7 @@ def main():
     create_main_dashboard()
     
     # P&L Performance Section
-    st.markdown("### 📈 Performance Analytics")
+    st.markdown("###  Performance Analytics")
     create_pnl_performance_chart(guardian)
     
     # Risk Assessment Section
