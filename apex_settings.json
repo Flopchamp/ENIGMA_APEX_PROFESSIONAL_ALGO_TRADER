@@ -1,6 +1,8 @@
 {
-  "safety_ratio": 75,
+  "safety_ratio": 50,
   "platform": "Tradovate",
+  "algo_bar_size": 8,
+  "chart_type": "Tide",
   "rules": {
     "evaluation_target": 8.0,
     "evaluation_max_daily_loss": 5.0,
@@ -22,8 +24,20 @@
     "max_contracts_per_trade": 10,
     "max_total_contracts": 20,
     "platform": "Tradovate",
-    "safety_ratio": 75,
+    "safety_ratio": 50,
     "violation_lockout_hours": 24,
     "max_violations_allowed": 0
+  },
+  "algo_settings": {
+    "algo_bar_size": 8,
+    "symbol": "ES",
+    "chart_type": "Tide",
+    "show_volume": true,
+    "show_delta": true,
+    "color_scheme": "Bull/Bear",
+    "body_style": "Filled",
+    "wick_style": "Standard",
+    "show_imbalance_zones": true,
+    "no_repainting": true
   }
 }
