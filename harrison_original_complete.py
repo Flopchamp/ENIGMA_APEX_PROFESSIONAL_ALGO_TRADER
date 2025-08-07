@@ -538,6 +538,127 @@ class OCRScreenMonitor:
                     all_signals[region_name] = signals
                     
         return all_signals
+    
+    def render_ocr_configuration(self):
+        """Render OCR configuration interface"""
+        st.subheader("📱 OCR Configuration")
+        
+        # Show current regions
+        if self.monitoring_regions:
+            st.write("**Active Monitoring Regions:**")
+            for name, region in self.monitoring_regions.items():
+                col1, col2, col3 = st.columns([2, 2, 1])
+                with col1:
+                    st.write(f"**{name}**")
+                    st.caption(f"Position: ({region['left']}, {region['top']})")
+                with col2:
+                    st.caption(f"Size: {region['width']} × {region['height']}")
+                with col3:
+                    if st.button("🗑️", key=f"delete_{name}", help="Remove region"):
+                        del self.monitoring_regions[name]
+                        st.rerun()
+        else:
+            st.info("No monitoring regions configured")
+        
+        # Add new region
+        st.markdown("---")
+        st.write("**Add New Region:**")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            region_name = st.text_input("Region Name", placeholder="e.g., ES_Chart_Signals")
+            left = st.number_input("Left (X)", min_value=0, max_value=3840, value=100)
+            top = st.number_input("Top (Y)", min_value=0, max_value=2160, value=100)
+        
+        with col2:
+            st.write("")  # Spacer
+            width = st.number_input("Width", min_value=50, max_value=1920, value=300)
+            height = st.number_input("Height", min_value=50, max_value=1080, value=200)
+        
+        if st.button("➕ Add Region", use_container_width=True):
+            if region_name and region_name not in self.monitoring_regions:
+                self.add_monitoring_region(region_name, {
+                    'left': left, 'top': top, 'width': width, 'height': height
+                })
+                st.success(f"Added region: {region_name}")
+                st.rerun()
+            elif not region_name:
+                st.error("Please enter a region name")
+            else:
+                st.error("Region name already exists")
+    
+    def render_ocr_status(self):
+        """Render OCR monitoring status and controls"""
+        st.subheader("👁️ OCR Monitoring Status")
+        
+        # Status indicators
+        status_col1, status_col2, status_col3 = st.columns(3)
+        
+        with status_col1:
+            region_count = len(self.monitoring_regions)
+            st.metric("Configured Regions", region_count)
+        
+        with status_col2:
+            monitoring_status = "ACTIVE" if self.monitoring_active else "INACTIVE"
+            st.metric("Monitoring Status", monitoring_status)
+        
+        with status_col3:
+            signal_count = len(self.last_signals)
+            st.metric("Recent Signals", signal_count)
+        
+        # Control buttons
+        control_col1, control_col2, control_col3 = st.columns(3)
+        
+        with control_col1:
+            if st.button("🟢 Start Monitoring", use_container_width=True):
+                if self.monitoring_regions:
+                    self.monitoring_active = True
+                    st.success("OCR monitoring started")
+                    st.rerun()
+                else:
+                    st.error("Configure regions first")
+        
+        with control_col2:
+            if st.button("🟡 Pause Monitoring", use_container_width=True):
+                self.monitoring_active = False
+                st.warning("OCR monitoring paused")
+                st.rerun()
+        
+        with control_col3:
+            if st.button("🔧 Test Capture", use_container_width=True):
+                if self.monitoring_regions:
+                    try:
+                        signals = self.monitor_all_regions()
+                        if signals:
+                            st.success(f"Found {len(signals)} signal regions")
+                            for region, signal_list in signals.items():
+                                for signal in signal_list:
+                                    st.write(f"**{region}:** {signal['type']} ({signal['confidence']:.1%})")
+                        else:
+                            st.info("No signals detected in current capture")
+                    except Exception as e:
+                        st.error(f"OCR test failed: {str(e)[:50]}...")
+                else:
+                    st.warning("No regions configured for testing")
+        
+        # Recent signals display
+        if self.last_signals:
+            st.markdown("---")
+            st.write("**Recent Signals:**")
+            for region, signals in self.last_signals.items():
+                with st.expander(f"📊 {region}", expanded=False):
+                    for signal in signals[-5:]:  # Show last 5 signals
+                        signal_time = signal.get('timestamp', datetime.now()).strftime('%H:%M:%S')
+                        st.write(f"⏰ **{signal_time}** - {signal['type']} (Confidence: {signal['confidence']:.1%})")
+        
+        # OCR Settings
+        with st.expander("⚙️ OCR Settings", expanded=False):
+            scan_interval = st.slider("Scan Interval (seconds)", 1, 60, 5)
+            confidence_threshold = st.slider("Confidence Threshold", 0.1, 1.0, 0.7)
+            max_signals_history = st.number_input("Max Signals History", 10, 100, 50)
+            
+            if st.button("💾 Save OCR Settings"):
+                st.success("OCR settings saved")
 
 class NinjaTraderConnector:
     """Real NinjaTrader connection handler"""
@@ -3218,12 +3339,12 @@ class TrainingWheelsDashboard:
                 st.sidebar.caption(f"Total Historical Trades: {total_trades}")
                 
                 if total_trades >= st.session_state.kelly_settings["min_sample_size"]:
-                    st.sidebar.success("📈 Kelly Active")
+                    st.sidebar.success(" Kelly Active")
                 else:
-                    st.sidebar.info(f"📊 Need {st.session_state.kelly_settings['min_sample_size'] - total_trades} more trades")
+                    st.sidebar.info(f"Need {st.session_state.kelly_settings['min_sample_size'] - total_trades} more trades")
         
         else:
-            st.sidebar.info("📊 Using fixed position sizing")
+            st.sidebar.info("Using fixed position sizing")
         
         # OCR settings
         # OCR Configuration Section
