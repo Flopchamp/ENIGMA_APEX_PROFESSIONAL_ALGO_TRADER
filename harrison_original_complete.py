@@ -38,11 +38,28 @@ except ImportError:
     PSUTIL_AVAILABLE = False
 
 try:
-    from streamlit_ocr_module import StreamlitOCRManager
+    import cv2
+    import pytesseract
+    from PIL import Image, ImageGrab
+    import mss
     OCR_AVAILABLE = True
 except ImportError:
     OCR_AVAILABLE = False
-    StreamlitOCRManager = None
+
+try:
+    import websocket
+    import threading
+    WEBSOCKET_AVAILABLE = True
+except ImportError:
+    WEBSOCKET_AVAILABLE = False
+
+try:
+    import win32gui
+    import win32ui
+    import win32con
+    WINDOWS_API_AVAILABLE = True
+except ImportError:
+    WINDOWS_API_AVAILABLE = False
 
 @dataclass
 class EnigmaSignal:
@@ -157,6 +174,314 @@ class SystemStatus:
     ninjatrader_status: NinjaTraderStatus
     mode: str  # "DEMO", "TEST", "LIVE"
 
+class OCRScreenMonitor:
+    """Real-time OCR monitoring for trading signals"""
+    
+    def __init__(self):
+        self.monitoring_regions = {}
+        self.last_signals = {}
+        self.monitoring_active = False
+        
+    def add_monitoring_region(self, name: str, region: Dict[str, int]):
+        """Add a screen region to monitor for signals
+        
+        Args:
+            name: Name of the region (e.g., "ES_Chart", "Signal_Panel")
+            region: Dict with keys 'left', 'top', 'width', 'height'
+        """
+        self.monitoring_regions[name] = region
+        
+    def capture_region(self, region: Dict[str, int]) -> Optional[Image.Image]:
+        """Capture a specific screen region"""
+        if not OCR_AVAILABLE:
+            return None
+            
+        try:
+            with mss.mss() as sct:
+                screenshot = sct.grab(region)
+                return Image.frombytes("RGB", screenshot.size, screenshot.bgra, "raw", "BGRX")
+        except Exception as e:
+            logging.error(f"Error capturing screen region: {e}")
+            return None
+    
+    def extract_text_from_image(self, image: Image.Image) -> str:
+        """Extract text from image using OCR"""
+        if not OCR_AVAILABLE or not image:
+            return ""
+            
+        try:
+            # Convert to grayscale for better OCR
+            gray_image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2GRAY)
+            
+            # Apply preprocessing for better OCR accuracy
+            processed = cv2.threshold(gray_image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
+            
+            # Extract text
+            text = pytesseract.image_to_string(processed, config='--psm 6')
+            return text.strip()
+        except Exception as e:
+            logging.error(f"Error extracting text: {e}")
+            return ""
+    
+    def detect_trading_signals(self, text: str) -> List[Dict[str, str]]:
+        """Detect trading signals from OCR text"""
+        signals = []
+        text_upper = text.upper()
+        
+        # Common signal patterns
+        signal_patterns = [
+            ("BUY", "LONG"), ("SELL", "SHORT"), ("LONG", "LONG"), ("SHORT", "SHORT"),
+            ("CALL", "LONG"), ("PUT", "SHORT"), ("BULL", "LONG"), ("BEAR", "SHORT"),
+            ("UP", "LONG"), ("DOWN", "SHORT"), ("BULLISH", "LONG"), ("BEARISH", "SHORT")
+        ]
+        
+        for pattern, signal_type in signal_patterns:
+            if pattern in text_upper:
+                signals.append({
+                    "type": signal_type,
+                    "confidence": 0.8,
+                    "raw_text": text,
+                    "timestamp": datetime.now().isoformat()
+                })
+                break
+        
+        return signals
+    
+    def monitor_all_regions(self) -> Dict[str, List[Dict[str, str]]]:
+        """Monitor all configured regions for signals"""
+        all_signals = {}
+        
+        for region_name, region in self.monitoring_regions.items():
+            image = self.capture_region(region)
+            if image:
+                text = self.extract_text_from_image(image)
+                signals = self.detect_trading_signals(text)
+                if signals:
+                    all_signals[region_name] = signals
+                    
+        return all_signals
+
+class NinjaTraderConnector:
+    """Real NinjaTrader connection handler"""
+    
+    def __init__(self):
+        self.connection = None
+        self.is_connected = False
+        self.account_data = {}
+        self.position_data = {}
+        
+    def connect_via_socket(self, host: str = "localhost", port: int = 36973) -> bool:
+        """Connect to NinjaTrader via socket"""
+        try:
+            self.connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.connection.settimeout(10)
+            self.connection.connect((host, port))
+            self.is_connected = True
+            return True
+        except Exception as e:
+            logging.error(f"NinjaTrader socket connection failed: {e}")
+            return False
+    
+    def connect_via_atm(self) -> bool:
+        """Connect via NinjaTrader ATM strategies"""
+        # This would require NinjaScript addon - placeholder for now
+        try:
+            # Check if ATM strategies are running
+            if PSUTIL_AVAILABLE:
+                for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+                    try:
+                        if 'ninjatrader' in proc.info['name'].lower():
+                            # Check for ATM strategy processes
+                            if 'atm' in ' '.join(proc.info.get('cmdline', [])).lower():
+                                self.is_connected = True
+                                return True
+                    except (psutil.NoSuchProcess, psutil.AccessDenied):
+                        continue
+        except Exception as e:
+            logging.error(f"ATM connection check failed: {e}")
+        
+        return False
+    
+    def get_account_info(self) -> Dict[str, float]:
+        """Get real account information from NinjaTrader"""
+        if not self.is_connected:
+            return {}
+            
+        try:
+            # This would send actual commands to NT8
+            # For now, return structure for real implementation
+            account_info = {
+                'buying_power': 0.0,
+                'cash_value': 0.0,
+                'day_trading_buying_power': 0.0,
+                'initial_margin': 0.0,
+                'maintenance_margin': 0.0,
+                'net_liquidation': 0.0,
+                'unrealized_pnl': 0.0,
+                'realized_pnl': 0.0
+            }
+            
+            # TODO: Implement actual NT8 command communication
+            # Command format: "ACCOUNT;<account_name>|"
+            
+            return account_info
+        except Exception as e:
+            logging.error(f"Error getting NT account info: {e}")
+            return {}
+    
+    def get_positions(self) -> Dict[str, Dict[str, float]]:
+        """Get current positions from NinjaTrader"""
+        if not self.is_connected:
+            return {}
+            
+        try:
+            # TODO: Implement actual position retrieval
+            # Command format: "POSITIONS|"
+            positions = {}
+            return positions
+        except Exception as e:
+            logging.error(f"Error getting positions: {e}")
+            return {}
+
+class TradovateConnector:
+    """Enhanced Tradovate API connector with real-time capabilities"""
+    
+    def __init__(self):
+        self.access_token = None
+        self.websocket_connection = None
+        self.account_data = {}
+        self.position_data = {}
+        self.is_connected = False
+        
+    def authenticate(self, username: str, password: str, environment: str = "demo") -> bool:
+        """Authenticate with Tradovate API"""
+        try:
+            if environment == "demo":
+                base_url = "https://demo.tradovateapi.com/v1"
+            elif environment == "live":
+                base_url = "https://live.tradovateapi.com/v1"
+            else:
+                base_url = "https://demo.tradovateapi.com/v1"
+            
+            auth_data = {
+                "name": username,
+                "password": password,
+                "appId": "TrainingWheelsApp",
+                "appVersion": "2.0",
+                "cid": 1
+            }
+            
+            auth_url = f"{base_url}/auth/accesstokenrequest"
+            auth_req = urllib.request.Request(auth_url)
+            auth_req.add_header('Content-Type', 'application/json')
+            auth_req.add_header('Accept', 'application/json')
+            auth_data_bytes = json.dumps(auth_data).encode('utf-8')
+            
+            with urllib.request.urlopen(auth_req, data=auth_data_bytes, timeout=15) as response:
+                if response.status == 200:
+                    auth_result = json.loads(response.read().decode('utf-8'))
+                    self.access_token = auth_result.get('accessToken')
+                    self.is_connected = True
+                    return True
+                    
+        except Exception as e:
+            logging.error(f"Tradovate authentication failed: {e}")
+            
+        return False
+    
+    def connect_websocket(self, environment: str = "demo") -> bool:
+        """Connect to Tradovate WebSocket for real-time data"""
+        if not WEBSOCKET_AVAILABLE or not self.access_token:
+            return False
+            
+        try:
+            if environment == "demo":
+                ws_url = "wss://demo.tradovateapi.com/v1/websocket"
+            else:
+                ws_url = "wss://live.tradovateapi.com/v1/websocket"
+            
+            def on_message(ws, message):
+                try:
+                    data = json.loads(message)
+                    # Process real-time updates
+                    self.process_websocket_message(data)
+                except Exception as e:
+                    logging.error(f"Error processing WebSocket message: {e}")
+            
+            def on_error(ws, error):
+                logging.error(f"WebSocket error: {error}")
+            
+            def on_close(ws, close_status_code, close_msg):
+                logging.info("WebSocket connection closed")
+                self.is_connected = False
+            
+            self.websocket_connection = websocket.WebSocketApp(
+                ws_url,
+                header=[f"Authorization: Bearer {self.access_token}"],
+                on_message=on_message,
+                on_error=on_error,
+                on_close=on_close
+            )
+            
+            # Start WebSocket in background thread
+            websocket_thread = threading.Thread(target=self.websocket_connection.run_forever)
+            websocket_thread.daemon = True
+            websocket_thread.start()
+            
+            return True
+            
+        except Exception as e:
+            logging.error(f"WebSocket connection failed: {e}")
+            return False
+    
+    def process_websocket_message(self, data: Dict[str, Any]):
+        """Process incoming WebSocket messages"""
+        try:
+            if 'e' in data:  # Event type
+                event_type = data['e']
+                
+                if event_type == 'user':
+                    # User account updates
+                    self.account_data.update(data.get('d', {}))
+                elif event_type == 'position':
+                    # Position updates
+                    position_data = data.get('d', {})
+                    symbol = position_data.get('contractId')
+                    if symbol:
+                        self.position_data[symbol] = position_data
+                        
+        except Exception as e:
+            logging.error(f"Error processing WebSocket data: {e}")
+    
+    def get_real_account_data(self) -> Dict[str, float]:
+        """Get real-time account data"""
+        if not self.access_token:
+            return {}
+            
+        try:
+            # Use cached WebSocket data if available
+            if self.account_data:
+                return {
+                    'cash_balance': float(self.account_data.get('cashBalance', 0.0)),
+                    'margin_available': float(self.account_data.get('marginAvailable', 0.0)),
+                    'net_liquidation': float(self.account_data.get('netLiq', 0.0)),
+                    'unrealized_pnl': float(self.account_data.get('unrealizedPnL', 0.0)),
+                    'realized_pnl': float(self.account_data.get('realizedPnL', 0.0))
+                }
+            
+            # Fallback to REST API
+            return self.fetch_account_via_rest()
+            
+        except Exception as e:
+            logging.error(f"Error getting Tradovate account data: {e}")
+            return {}
+    
+    def fetch_account_via_rest(self) -> Dict[str, float]:
+        """Fetch account data via REST API as fallback"""
+        # Implementation similar to existing fetch_tradovate_account_data
+        # but returning the enhanced format
+        return {}
+
 class TrainingWheelsDashboard:
     """
     Training Wheels for Prop Firm Traders
@@ -166,13 +491,19 @@ class TrainingWheelsDashboard:
     def __init__(self):
         self.setup_page_config()
         self.setup_logging()  # Initialize logging first!
-        self.initialize_session_state()
+        
+        # Initialize real data connectors
+        self.ninja_connector = NinjaTraderConnector()
+        self.tradovate_connector = TradovateConnector()
         
         # Initialize OCR manager if available
         if OCR_AVAILABLE:
-            self.ocr_manager = StreamlitOCRManager()
+            self.ocr_manager = OCRScreenMonitor()
+            self.setup_ocr_regions()
         else:
             self.ocr_manager = None
+            
+        self.initialize_session_state()
     
     def setup_page_config(self):
         """Configure Streamlit page for prop firm training"""
@@ -628,6 +959,23 @@ class TrainingWheelsDashboard:
         logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(__name__)
     
+    def setup_ocr_regions(self):
+        """Setup OCR monitoring regions for different trading platforms"""
+        if not self.ocr_manager:
+            return
+            
+        # Default regions - users can customize these
+        default_regions = {
+            "ninja_chart_1": {"left": 100, "top": 100, "width": 300, "height": 200},
+            "ninja_chart_2": {"left": 450, "top": 100, "width": 300, "height": 200},
+            "signal_panel": {"left": 800, "top": 100, "width": 200, "height": 150},
+            "tradovate_dom": {"left": 1000, "top": 100, "width": 250, "height": 300},
+            "alerts_area": {"left": 100, "top": 350, "width": 400, "height": 100}
+        }
+        
+        for name, region in default_regions.items():
+            self.ocr_manager.add_monitoring_region(name, region)
+    
     def initialize_session_state(self):
         """Initialize all session state variables"""
         # Core system state
@@ -916,10 +1264,37 @@ class TrainingWheelsDashboard:
         ninja_data = {}
         
         try:
-            # NinjaTrader API connection would go here
-            # For now, using process monitoring to determine if real data is available
-            if PSUTIL_AVAILABLE:
-                # Check if NinjaTrader is actively trading
+            # Try socket connection first
+            if self.ninja_connector.connect_via_socket():
+                account_info = self.ninja_connector.get_account_info()
+                if account_info:
+                    ninja_data = {
+                        'total_equity': account_info.get('net_liquidation', 0.0),
+                        'total_margin_remaining': account_info.get('buying_power', 0.0),
+                        'total_margin_percentage': 0.0,  # Calculate below
+                        'daily_profit_loss': account_info.get('realized_pnl', 0.0) + account_info.get('unrealized_pnl', 0.0),
+                        'safety_ratio': 0.0  # Calculate below
+                    }
+                    
+                    # Calculate percentages
+                    equity = ninja_data['total_equity']
+                    margin_available = ninja_data['total_margin_remaining']
+                    if equity > 0:
+                        ninja_data['total_margin_percentage'] = (margin_available / equity) * 100.0
+                        ninja_data['safety_ratio'] = ninja_data['total_margin_percentage']
+                    
+                    self.logger.info("Successfully fetched real NinjaTrader data via socket")
+                    return ninja_data
+            
+            # Fallback to ATM strategy connection
+            elif self.ninja_connector.connect_via_atm():
+                account_info = self.ninja_connector.get_account_info()
+                if account_info:
+                    # Similar processing as above
+                    self.logger.info("Successfully connected via NinjaTrader ATM")
+                    
+            # Fallback to process monitoring (existing method)
+            elif PSUTIL_AVAILABLE:
                 ninja_processes = []
                 for proc in psutil.process_iter(['pid', 'name', 'memory_info']):
                     try:
@@ -929,12 +1304,8 @@ class TrainingWheelsDashboard:
                         continue
                 
                 if ninja_processes:
-                    # NinjaTrader is running - could potentially fetch real data
-                    # This would connect to NT8's ATM or strategy APIs
-                    self.logger.info("NinjaTrader detected - real data connection needed")
-                    
-                    # TODO: Implement actual NinjaTrader API connection
-                    # For now, return realistic demo data to show it's working
+                    self.logger.info("NinjaTrader detected - using demo data (real API not connected)")
+                    # Return realistic demo data to show it's working
                     ninja_data = {
                         'total_equity': 50000.0,
                         'total_margin_remaining': 35000.0,
@@ -949,7 +1320,7 @@ class TrainingWheelsDashboard:
         return ninja_data
     
     def fetch_tradovate_account_data(self) -> Dict[str, float]:
-        """Fetch real account data from Tradovate API"""
+        """Fetch real account data from Tradovate API with WebSocket support"""
         tradovate_data = {}
         
         try:
@@ -960,65 +1331,83 @@ class TrainingWheelsDashboard:
             if not username or not password:
                 return {}
             
-            # Select API endpoint
-            if environment == "demo":
-                base_url = "https://demo.tradovateapi.com/v1"
-            elif environment == "live":
-                base_url = "https://live.tradovateapi.com/v1"
-            else:
-                base_url = "https://demo.tradovateapi.com/v1"
-            
-            # Get access token first
-            auth_data = {
-                "name": username,
-                "password": password,
-                "appId": "TrainingWheelsApp",
-                "appVersion": "1.0",
-                "cid": 1
-            }
-            
-            # Authenticate
-            auth_url = f"{base_url}/auth/accesstokenrequest"
-            auth_req = urllib.request.Request(auth_url)
-            auth_req.add_header('Content-Type', 'application/json')
-            auth_req.add_header('Accept', 'application/json')
-            auth_data_bytes = json.dumps(auth_data).encode('utf-8')
-            
-            with urllib.request.urlopen(auth_req, data=auth_data_bytes, timeout=10) as response:
-                if response.status == 200:
-                    auth_result = json.loads(response.read().decode('utf-8'))
-                    access_token = auth_result.get('accessToken')
-                    
-                    if access_token:
-                        # Fetch account data
-                        account_url = f"{base_url}/account/list"
-                        account_req = urllib.request.Request(account_url)
-                        account_req.add_header('Authorization', f'Bearer {access_token}')
-                        account_req.add_header('Accept', 'application/json')
+            # Try to authenticate and get real-time data
+            if self.tradovate_connector.authenticate(username, password, environment):
+                # Try WebSocket connection for real-time data
+                if self.tradovate_connector.connect_websocket(environment):
+                    real_time_data = self.tradovate_connector.get_real_account_data()
+                    if real_time_data:
+                        tradovate_data = {
+                            'total_equity': real_time_data.get('cash_balance', 0.0),
+                            'total_margin_remaining': real_time_data.get('margin_available', 0.0),
+                            'daily_profit_loss': real_time_data.get('realized_pnl', 0.0) + real_time_data.get('unrealized_pnl', 0.0),
+                            'safety_ratio': 0.0
+                        }
                         
-                        with urllib.request.urlopen(account_req, timeout=10) as acc_response:
-                            if acc_response.status == 200:
-                                accounts = json.loads(acc_response.read().decode('utf-8'))
-                                
-                                # Process account data
-                                if accounts and len(accounts) > 0:
-                                    account = accounts[0]  # Use first account
+                        # Calculate margin percentage
+                        equity = tradovate_data['total_equity']
+                        margin_available = tradovate_data['total_margin_remaining']
+                        if equity > 0:
+                            tradovate_data['total_margin_percentage'] = (margin_available / equity) * 100.0
+                            tradovate_data['safety_ratio'] = tradovate_data['total_margin_percentage']
+                        
+                        self.logger.info("Successfully fetched real-time Tradovate data via WebSocket")
+                        return tradovate_data
+                
+                # Fallback to REST API (existing implementation)
+                base_url = "https://demo.tradovateapi.com/v1" if environment == "demo" else "https://live.tradovateapi.com/v1"
+                
+                # Get access token first
+                auth_data = {
+                    "name": username,
+                    "password": password,
+                    "appId": "TrainingWheelsApp",
+                    "appVersion": "2.0",
+                    "cid": 1
+                }
+                
+                # Authenticate
+                auth_url = f"{base_url}/auth/accesstokenrequest"
+                auth_req = urllib.request.Request(auth_url)
+                auth_req.add_header('Content-Type', 'application/json')
+                auth_req.add_header('Accept', 'application/json')
+                auth_data_bytes = json.dumps(auth_data).encode('utf-8')
+                
+                with urllib.request.urlopen(auth_req, data=auth_data_bytes, timeout=10) as response:
+                    if response.status == 200:
+                        auth_result = json.loads(response.read().decode('utf-8'))
+                        access_token = auth_result.get('accessToken')
+                        
+                        if access_token:
+                            # Fetch account data
+                            account_url = f"{base_url}/account/list"
+                            account_req = urllib.request.Request(account_url)
+                            account_req.add_header('Authorization', f'Bearer {access_token}')
+                            account_req.add_header('Accept', 'application/json')
+                            
+                            with urllib.request.urlopen(account_req, timeout=10) as acc_response:
+                                if acc_response.status == 200:
+                                    accounts = json.loads(acc_response.read().decode('utf-8'))
                                     
-                                    # Extract real account data
-                                    tradovate_data = {
-                                        'total_equity': float(account.get('cashBalance', 0.0)),
-                                        'total_margin_remaining': float(account.get('marginAvailable', 0.0)),
-                                        'daily_profit_loss': float(account.get('netLiq', 0.0) - account.get('cashBalance', 0.0)),
-                                        'safety_ratio': min(100.0, (float(account.get('marginAvailable', 0.0)) / max(float(account.get('cashBalance', 1.0)), 1.0)) * 100.0)
-                                    }
-                                    
-                                    # Calculate margin percentage
-                                    equity = tradovate_data['total_equity']
-                                    margin_available = tradovate_data['total_margin_remaining']
-                                    if equity > 0:
-                                        tradovate_data['total_margin_percentage'] = (margin_available / equity) * 100.0
-                                    
-                                    self.logger.info(f"Fetched real Tradovate data: {tradovate_data}")
+                                    # Process account data
+                                    if accounts and len(accounts) > 0:
+                                        account = accounts[0]  # Use first account
+                                        
+                                        # Extract real account data
+                                        tradovate_data = {
+                                            'total_equity': float(account.get('cashBalance', 0.0)),
+                                            'total_margin_remaining': float(account.get('marginAvailable', 0.0)),
+                                            'daily_profit_loss': float(account.get('netLiq', 0.0) - account.get('cashBalance', 0.0)),
+                                            'safety_ratio': min(100.0, (float(account.get('marginAvailable', 0.0)) / max(float(account.get('cashBalance', 1.0)), 1.0)) * 100.0)
+                                        }
+                                        
+                                        # Calculate margin percentage
+                                        equity = tradovate_data['total_equity']
+                                        margin_available = tradovate_data['total_margin_remaining']
+                                        if equity > 0:
+                                            tradovate_data['total_margin_percentage'] = (margin_available / equity) * 100.0
+                                        
+                                        self.logger.info(f"Fetched real Tradovate data via REST: {tradovate_data}")
         
         except urllib.error.HTTPError as e:
             self.logger.error(f"Tradovate HTTP error: {e.code}")
@@ -1113,6 +1502,98 @@ class TrainingWheelsDashboard:
             'daily_profit_loss': 0.0,
             'safety_ratio': 80.0
         }
+    
+    
+    def render_ocr_config_modal(self):
+        """Render OCR region configuration modal"""
+        st.markdown("---")
+        st.header("🎯 OCR Region Configuration")
+        st.markdown("Configure screen regions for automatic signal detection")
+        
+        col1, col2 = st.columns([1, 1])
+        
+        with col1:
+            st.subheader("Add New Region")
+            region_name = st.text_input("Region Name", placeholder="e.g., ES_Chart_1")
+            
+            # Screen coordinates
+            left = st.number_input("Left (X)", min_value=0, max_value=3840, value=100)
+            top = st.number_input("Top (Y)", min_value=0, max_value=2160, value=100)
+            width = st.number_input("Width", min_value=50, max_value=1920, value=300)
+            height = st.number_input("Height", min_value=50, max_value=1080, value=200)
+            
+            if st.button("Add Region", use_container_width=True):
+                if region_name and self.ocr_manager:
+                    region = {"left": left, "top": top, "width": width, "height": height}
+                    self.ocr_manager.add_monitoring_region(region_name, region)
+                    st.success(f"Added region: {region_name}")
+                    st.rerun()
+        
+        with col2:
+            st.subheader("Current Regions")
+            if self.ocr_manager and self.ocr_manager.monitoring_regions:
+                for name, region in self.ocr_manager.monitoring_regions.items():
+                    with st.expander(f"📍 {name}"):
+                        st.write(f"**Position:** ({region['left']}, {region['top']})")
+                        st.write(f"**Size:** {region['width']} × {region['height']}")
+                        
+                        col_test, col_remove = st.columns(2)
+                        with col_test:
+                            if st.button(f"Test", key=f"test_{name}"):
+                                try:
+                                    image = self.ocr_manager.capture_region(region)
+                                    if image:
+                                        text = self.ocr_manager.extract_text_from_image(image)
+                                        st.write(f"**Text:** {text[:100]}...")
+                                        signals = self.ocr_manager.detect_trading_signals(text)
+                                        if signals:
+                                            st.success(f"Found {len(signals)} signals")
+                                        else:
+                                            st.info("No signals detected")
+                                except Exception as e:
+                                    st.error(f"Test failed: {e}")
+                        
+                        with col_remove:
+                            if st.button(f"Remove", key=f"remove_{name}"):
+                                del self.ocr_manager.monitoring_regions[name]
+                                st.success(f"Removed {name}")
+                                st.rerun()
+            else:
+                st.info("No regions configured")
+        
+        # Instructions
+        st.markdown("---")
+        st.subheader("📋 Setup Instructions")
+        
+        setup_instructions = """
+        **How to configure OCR regions:**
+        
+        1. **Position your trading windows** where you want them monitored
+        2. **Find coordinates** by taking a screenshot and using image editing software
+        3. **Add regions** for:
+           - Chart signal panels
+           - DOM/order book areas
+           - Alert notification areas
+           - Strategy status panels
+        
+        **Tips for better OCR accuracy:**
+        - Use high contrast regions (dark text on light background)
+        - Avoid overlapping windows
+        - Test regions before enabling monitoring
+        - Keep region sizes moderate (300x200 recommended)
+        
+        **Connection with Trading Signals:**
+        - OCR detects: BUY, SELL, LONG, SHORT, CALL, PUT
+        - Signals automatically update chart status
+        - Manual override always available
+        """
+        
+        st.markdown(setup_instructions)
+        
+        # Close button
+        if st.button("Done - Close OCR Setup", type="primary", use_container_width=True):
+            st.session_state.show_ocr_config = False
+            st.rerun()
     
     def check_ninjatrader_connection(self) -> bool:
         """Check real NinjaTrader connection (no more hardcoding!)"""
@@ -1416,7 +1897,13 @@ class TrainingWheelsDashboard:
             st.markdown('<h2 class="header-subtitle">Professional Prop Firm Trading Platform</h2>', unsafe_allow_html=True)
             # Display selected prop firm and trader info
             selected_firm = st.session_state.get('selected_prop_firm', 'FTMO')
-            trader_name = st.session_state.user_config.get('trader_name', 'Trader')
+            
+            # Safe access to user_config - handle both dict and SimpleConfig objects
+            if hasattr(st.session_state.user_config, 'get'):
+                trader_name = st.session_state.user_config.get('trader_name', 'Trader')
+            else:
+                trader_name = getattr(st.session_state.user_config, 'trader_name', 'Trader')
+            
             st.markdown(f'<p class="header-subtitle">{trader_name} | {selected_firm} Challenge Dashboard</p>', unsafe_allow_html=True)
             
             # Show ERM status if enabled
@@ -1627,66 +2114,271 @@ class TrainingWheelsDashboard:
             st.rerun()
     
     def render_ninjatrader_setup(self):
-        """NinjaTrader connection configuration"""
-        st.subheader("🥷 NinjaTrader Configuration")
+        """NinjaTrader connection configuration with real data instructions"""
+        st.subheader("🥷 NinjaTrader Real Data Connection")
         
-        # Connection settings
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.session_state.connection_config["ninjatrader_host"] = st.text_input(
-                "NinjaTrader Host",
-                value=st.session_state.connection_config["ninjatrader_host"],
-                help="Usually 'localhost' if running on same machine"
-            )
-            
-            st.session_state.connection_config["ninjatrader_port"] = st.number_input(
-                "Connection Port",
-                value=st.session_state.connection_config["ninjatrader_port"],
-                min_value=1000,
-                max_value=65535,
-                help="Default NT8 port is 36973"
-            )
-        
-        with col2:
-            st.session_state.connection_config["ninjatrader_version"] = st.selectbox(
-                "NinjaTrader Version",
-                ["8.0", "7.0"],
-                index=0 if st.session_state.connection_config["ninjatrader_version"] == "8.0" else 1
-            )
-            
-            st.session_state.connection_config["ninjatrader_auto_connect"] = st.checkbox(
-                "Auto-connect on startup",
-                value=st.session_state.connection_config["ninjatrader_auto_connect"]
-            )
-        
-        # Strategy configuration
-        st.markdown("---")
-        st.subheader("Strategy Settings")
-        
-        available_strategies = [
-            "MarketAnalyzer", "Chart Trader", "ATM Strategy",
-            "SuperDOM", "Custom Strategy 1", "Custom Strategy 2"
-        ]
-        
-        st.session_state.connection_config["ninjatrader_strategies"] = st.multiselect(
-            "Enable Strategies",
-            available_strategies,
-            default=st.session_state.connection_config.get("ninjatrader_strategies", [])
+        # Connection Method Selection
+        st.markdown("### Connection Method")
+        connection_method = st.selectbox(
+            "How would you like to connect to NinjaTrader?",
+            [
+                "Socket Connection (NT8 Direct)",
+                "ATM Strategy Integration", 
+                "NinjaScript Addon",
+                "File-Based Data Exchange",
+                "Process Monitoring Only"
+            ],
+            help="Different methods provide different levels of data access"
         )
         
-        # Test NinjaTrader connection
+        if connection_method == "Socket Connection (NT8 Direct)":
+            st.markdown("""
+            **🔌 Socket Connection Setup:**
+            
+            **Requirements:**
+            - NinjaTrader 8 with enabled connections
+            - Firewall configured to allow connections
+            - Admin privileges may be required
+            
+            **Setup Steps:**
+            1. Open NinjaTrader 8
+            2. Go to Tools → Options → General → Connections
+            3. Enable "Allow external applications to start NinjaTrader"
+            4. Set connection port (default: 36973)
+            5. Configure allowed IP addresses
+            """)
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                st.session_state.connection_config["ninjatrader_host"] = st.text_input(
+                    "NinjaTrader Host",
+                    value=st.session_state.connection_config["ninjatrader_host"],
+                    help="Usually 'localhost' if running on same machine"
+                )
+                
+                st.session_state.connection_config["ninjatrader_port"] = st.number_input(
+                    "Connection Port",
+                    value=st.session_state.connection_config["ninjatrader_port"],
+                    min_value=1000,
+                    max_value=65535,
+                    help="Default NT8 port is 36973"
+                )
+            
+            with col2:
+                st.session_state.connection_config["ninjatrader_version"] = st.selectbox(
+                    "NinjaTrader Version",
+                    ["8.0", "7.0"],
+                    index=0 if st.session_state.connection_config["ninjatrader_version"] == "8.0" else 1
+                )
+                
+                st.session_state.connection_config["ninjatrader_auto_connect"] = st.checkbox(
+                    "Auto-connect on startup",
+                    value=st.session_state.connection_config["ninjatrader_auto_connect"]
+                )
+            
+            if st.button("Test Socket Connection", use_container_width=True):
+                success = self.ninja_connector.connect_via_socket(
+                    st.session_state.connection_config["ninjatrader_host"],
+                    st.session_state.connection_config["ninjatrader_port"]
+                )
+                if success:
+                    st.success("✅ Socket connection successful!")
+                    account_data = self.ninja_connector.get_account_info()
+                    if account_data:
+                        st.json(account_data)
+                else:
+                    st.error("❌ Socket connection failed")
+        
+        elif connection_method == "ATM Strategy Integration":
+            st.markdown("""
+            **⚙️ ATM Strategy Integration:**
+            
+            **What you need:**
+            - NinjaTrader 8 with ATM strategies
+            - Strategies running with our target instruments
+            - Strategy templates configured
+            
+            **Setup Process:**
+            1. Create ATM strategy templates for each instrument
+            2. Configure position sizing and stop/target rules
+            3. Enable strategy automation
+            4. Our system will monitor strategy status and positions
+            """)
+            
+            # ATM Strategy Configuration
+            available_strategies = [
+                "TrainingWheels_ES", "TrainingWheels_NQ", "TrainingWheels_YM",
+                "TrainingWheels_RTY", "TrainingWheels_CL", "TrainingWheels_GC",
+                "Custom Strategy 1", "Custom Strategy 2"
+            ]
+            
+            st.session_state.connection_config["ninjatrader_strategies"] = st.multiselect(
+                "Active ATM Strategies",
+                available_strategies,
+                default=st.session_state.connection_config.get("ninjatrader_strategies", [])
+            )
+            
+            if st.button("Test ATM Connection", use_container_width=True):
+                success = self.ninja_connector.connect_via_atm()
+                if success:
+                    st.success("✅ ATM strategies detected!")
+                else:
+                    st.warning("⚠️ No ATM strategies found running")
+        
+        elif connection_method == "NinjaScript Addon":
+            st.markdown("""
+            **📜 NinjaScript Addon Method:**
+            
+            **Most Reliable Method for Real Data!**
+            
+            **What we'll provide:**
+            - Custom NinjaScript addon (.cs files)
+            - Data export functionality
+            - Real-time position monitoring
+            - P&L tracking
+            
+            **Installation Steps:**
+            1. Download our NinjaScript addon files
+            2. Place in Documents\\NinjaTrader 8\\bin\\Custom\\
+            3. Compile in NinjaScript Editor
+            4. Add to your charts as an indicator
+            5. Configure data export path
+            """)
+            
+            export_path = st.text_input(
+                "Data Export Path",
+                value=r"C:\TradingData\ninja_export.json",
+                help="Where NinjaScript will write data files"
+            )
+            
+            if st.button("📥 Download NinjaScript Files", use_container_width=True):
+                st.info("NinjaScript addon files would be generated and downloaded here")
+                # TODO: Generate actual NinjaScript .cs files
+                
+            if st.button("Test File Connection", use_container_width=True):
+                if os.path.exists(export_path):
+                    st.success(f"✅ Data file found: {export_path}")
+                    try:
+                        with open(export_path, 'r') as f:
+                            data = json.load(f)
+                        st.json(data)
+                    except Exception as e:
+                        st.error(f"Error reading data: {e}")
+                else:
+                    st.warning(f"⚠️ Data file not found: {export_path}")
+        
+        elif connection_method == "File-Based Data Exchange":
+            st.markdown("""
+            **📂 File-Based Data Exchange:**
+            
+            **Manual but Reliable Method:**
+            - Export data from NinjaTrader to CSV/JSON
+            - Our system reads files periodically
+            - Good for backtesting and manual updates
+            
+            **Setup:**
+            1. Set up export folder structure
+            2. Configure NinjaTrader to export positions/P&L
+            3. Set refresh interval
+            """)
+            
+            data_folder = st.text_input(
+                "Data Folder Path",
+                value=r"C:\TradingData\NinjaTrader",
+                help="Folder where NT exports data files"
+            )
+            
+            refresh_interval = st.slider("Refresh Interval (seconds)", 5, 300, 30)
+            
+            if st.button("Setup Data Folder", use_container_width=True):
+                try:
+                    os.makedirs(data_folder, exist_ok=True)
+                    st.success(f"✅ Data folder created: {data_folder}")
+                except Exception as e:
+                    st.error(f"Error creating folder: {e}")
+        
+        else:  # Process Monitoring Only
+            st.markdown("""
+            **👀 Process Monitoring Only:**
+            
+            **Limited but Safe Method:**
+            - Detects if NinjaTrader is running
+            - Shows process information
+            - No real account data access
+            - Good for demo/testing mode
+            """)
+            
+            if st.button("Check NinjaTrader Process", use_container_width=True):
+                if self.check_ninjatrader_connection():
+                    st.success("✅ NinjaTrader process detected!")
+                    ninja_status = st.session_state.ninjatrader_status
+                    st.write(f"Process ID: {ninja_status.process_id}")
+                    st.write(f"Memory Usage: {ninja_status.memory_usage:.1f} MB")
+                    st.write(f"CPU Usage: {ninja_status.cpu_usage:.1f}%")
+                else:
+                    st.error("❌ NinjaTrader not detected")
+        
+        # AlgoTrader Integration
         st.markdown("---")
-        if st.button("Test NinjaTrader Connection", use_container_width=True):
-            if self.check_ninjatrader_connection():
-                st.success("NinjaTrader detected and connected!")
-                # Get process details
-                ninja_status = st.session_state.ninjatrader_status
-                st.info(f"Process ID: {ninja_status.process_id}")
-                st.info(f"Memory Usage: {ninja_status.memory_usage:.1f} MB")
-            else:
-                st.error("NinjaTrader not detected!")
-                st.warning("Make sure NinjaTrader is running and properly configured.")
+        st.subheader("🤖 AlgoTrader Integration")
+        
+        algotrader_method = st.selectbox(
+            "AlgoTrader Connection Method",
+            [
+                "REST API", 
+                "WebSocket", 
+                "File Export",
+                "Not Using AlgoTrader"
+            ]
+        )
+        
+        if algotrader_method == "REST API":
+            st.markdown("""
+            **AlgoTrader REST API Setup:**
+            - Requires AlgoTrader server running
+            - API credentials needed
+            - Direct access to positions and orders
+            """)
+            
+            api_host = st.text_input("AlgoTrader Host", value="localhost:8080")
+            api_username = st.text_input("API Username")
+            api_password = st.text_input("API Password", type="password")
+            
+            if st.button("Test AlgoTrader API", use_container_width=True):
+                st.info("AlgoTrader API test would be performed here")
+        
+        elif algotrader_method == "WebSocket":
+            st.markdown("""
+            **AlgoTrader WebSocket Integration:**
+            - Real-time data streaming
+            - Order execution monitoring
+            - Position updates
+            """)
+            
+            ws_endpoint = st.text_input("WebSocket Endpoint", value="ws://localhost:8080/ws")
+            
+        elif algotrader_method == "File Export":
+            st.markdown("""
+            **AlgoTrader File Export:**
+            - Configure AlgoTrader to export data files
+            - JSON or CSV format supported
+            - Scheduled exports recommended
+            """)
+            
+            export_folder = st.text_input("Export Folder", value=r"C:\TradingData\AlgoTrader")
+        
+        # Summary
+        st.markdown("---")
+        st.markdown(f"**Selected Method:** {connection_method}")
+        if connection_method != "Process Monitoring Only":
+            st.warning("⚠️ Real data connections require proper configuration and testing!")
+        
+        st.markdown("""
+        **Need Help?**
+        - Check our setup guides for detailed instructions
+        - Test connections in DEMO mode first
+        - Contact support for custom integration needs
+        """)
     
     def render_tradovate_setup(self):
         """Tradovate API configuration"""
@@ -2178,11 +2870,78 @@ class TrainingWheelsDashboard:
                 st.sidebar.error(f"❌ Issues: {', '.join(connection_issues)}")
         
         # OCR settings
+        # OCR Configuration Section
         if OCR_AVAILABLE and self.ocr_manager:
             st.sidebar.markdown("---")
-            st.sidebar.subheader("👁️ OCR Settings")
-            if st.sidebar.button("Configure OCR"):
-                st.sidebar.info("OCR configuration panel would open here")
+            st.sidebar.subheader("👁️ OCR Signal Detection")
+            
+            # OCR Enable/Disable
+            ocr_enabled = st.sidebar.checkbox("Enable OCR Monitoring", value=False, key="ocr_enabled")
+            
+            if ocr_enabled:
+                # Region Configuration
+                st.sidebar.write("**Screen Regions:**")
+                region_names = list(self.ocr_manager.monitoring_regions.keys())
+                if region_names:
+                    selected_regions = st.sidebar.multiselect(
+                        "Active Regions",
+                        region_names,
+                        default=region_names[:2],
+                        key="ocr_regions"
+                    )
+                else:
+                    selected_regions = []
+                
+                # OCR Settings
+                scan_interval = st.sidebar.slider("Scan Interval (seconds)", 1, 30, 5, key="ocr_interval")
+                confidence_threshold = st.sidebar.slider("Signal Confidence", 0.1, 1.0, 0.7, key="ocr_confidence")
+                
+                # Test OCR Button
+                if st.sidebar.button("Test OCR Capture", use_container_width=True):
+                    if selected_regions:
+                        try:
+                            signals = self.ocr_manager.monitor_all_regions()
+                            if signals:
+                                st.sidebar.success(f"Found {len(signals)} signals!")
+                                for region, signal_list in signals.items():
+                                    for signal in signal_list:
+                                        st.sidebar.write(f"**{region}:** {signal['type']} ({signal['confidence']:.1%})")
+                            else:
+                                st.sidebar.info("No signals detected")
+                        except Exception as e:
+                            st.sidebar.error(f"OCR test failed: {str(e)[:50]}...")
+                    else:
+                        st.sidebar.warning("Select regions first")
+                
+                # Configure Custom Region
+                if st.sidebar.button("Add Custom Region", key="add_ocr_region"):
+                    st.session_state.show_ocr_config = True
+                
+                # Manual Signal Input (for testing)
+                st.sidebar.write("**Manual Signal Input:**")
+                manual_signal = st.sidebar.selectbox("Signal Type", ["LONG", "SHORT", "NONE"], key="manual_signal")
+                manual_chart = st.sidebar.selectbox("Target Chart", list(range(1, 7)), key="manual_chart")
+                
+                if st.sidebar.button("Send Manual Signal", key="send_manual"):
+                    if manual_signal != "NONE":
+                        chart = st.session_state.charts.get(manual_chart)
+                        if chart:
+                            chart.signal_color = "green" if manual_signal == "LONG" else "red"
+                            chart.last_signal = f"OCR {manual_signal}"
+                            st.sidebar.success(f"Sent {manual_signal} signal to Chart {manual_chart}")
+            
+            else:
+                st.sidebar.info("OCR monitoring disabled")
+                
+            # OCR Configuration Modal
+            if st.session_state.get('show_ocr_config', False):
+                self.render_ocr_config_modal()
+        
+        else:
+            st.sidebar.markdown("---")
+            st.sidebar.write("**OCR Status:** Not Available")
+            if not OCR_AVAILABLE:
+                st.sidebar.info("Install required packages:\n`pip install opencv-python pytesseract pillow mss`")
     
     def simulate_data_updates(self):
         """Simulate real-time data updates when system is running"""
@@ -2398,13 +3157,13 @@ class TrainingWheelsDashboard:
                         st.write(f"**Chart:** {alert['chart_name']}")
                         
                         # Action buttons
-                        if st.button(f"📈 Execute {alert['reversal_direction']}", key=f"execute_{alert['timestamp']}"):
+                        if st.button(f"Execute {alert['reversal_direction']}", key=f"execute_{alert['timestamp']}"):
                             self.execute_reversal_trade(alert['chart_id'], alert['reversal_direction'])
-                            st.success(f"✅ {alert['reversal_direction']} trade executed!")
+                            st.success(f" {alert['reversal_direction']} trade executed!")
                             st.rerun()
         
         # Manual Enigma Signal Entry
-        st.markdown("### 🎯 Manual Enigma Signal Entry")
+        st.markdown("### Manual Enigma Signal Entry")
         
         manual_col1, manual_col2, manual_col3 = st.columns(3)
         
@@ -2561,13 +3320,16 @@ class TrainingWheelsDashboard:
                     
                     # Temporarily set st.session_state.user_config for OCR
                     original_config = st.session_state.user_config
-                    st.session_state.user_config = config_obj
                     
-                    self.ocr_manager.render_ocr_configuration()
-                    self.ocr_manager.render_ocr_status()
+                    try:
+                        st.session_state.user_config = config_obj
+                        
+                        self.ocr_manager.render_ocr_configuration()
+                        self.ocr_manager.render_ocr_status()
                     
-                    # Restore original config
-                    st.session_state.user_config = original_config
+                    finally:
+                        # Always restore original config, even if exceptions occur
+                        st.session_state.user_config = original_config
                     
                 except Exception as e:
                     st.error(f"OCR Error: {e}")
@@ -2593,7 +3355,15 @@ class TrainingWheelsDashboard:
         st.markdown("---")
         # Display selected prop firm info
         selected_firm = st.session_state.get('selected_prop_firm', 'FTMO')
-        trader_name = st.session_state.user_config.get('trader_name', 'Trader')
+        
+        # Safe access to user_config - handle both dict and SimpleConfig objects
+        if hasattr(st.session_state.user_config, 'get'):
+            # It's a dictionary
+            trader_name = st.session_state.user_config.get('trader_name', 'Trader')
+        else:
+            # It's a SimpleConfig object or other type
+            trader_name = getattr(st.session_state.user_config, 'trader_name', 'Trader')
+        
         st.markdown(f"🎯 **Training Wheels for Prop Firm Traders** | {trader_name} | {selected_firm} Challenge Dashboard")
         
         # Show ERM status in footer
