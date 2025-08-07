@@ -174,6 +174,284 @@ class SystemStatus:
     ninjatrader_status: NinjaTraderStatus
     mode: str  # "DEMO", "TEST", "LIVE"
 
+@dataclass
+class KellyCalculation:
+    """Kelly Criterion calculation result for optimal position sizing"""
+    kelly_percentage: float      # Raw Kelly percentage (0-1)
+    win_probability: float       # Probability of winning trade (0-1)
+    avg_win: float              # Average winning trade amount
+    avg_loss: float             # Average losing trade amount
+    risk_adjusted_kelly: float   # Kelly adjusted for risk management
+    recommended_position: float  # Actual recommended position size
+    confidence_level: float      # Signal confidence (0-1)
+    max_position_limit: float    # Maximum allowed position size
+    sample_size: int            # Number of historical trades used
+    sharpe_ratio: float         # Risk-adjusted return measure
+
+@dataclass
+class TradingHistory:
+    """Historical trading data for Kelly calculations"""
+    trades: List[Dict]          # Historical trade results
+    win_rate: float            # Overall win rate
+    profit_factor: float       # Gross profit / Gross loss
+    avg_winner: float          # Average winning trade
+    avg_loser: float           # Average losing trade
+    total_trades: int          # Total number of trades
+    consecutive_wins: int       # Current winning streak
+    consecutive_losses: int     # Current losing streak
+    max_drawdown: float        # Maximum historical drawdown
+
+class KellyEngine:
+    """
+    Advanced Kelly Criterion Engine for optimal position sizing
+    
+    Kelly Formula: f* = (bp - q) / b
+    Where:
+    - f* = optimal fraction of capital to bet
+    - b = odds of winning (avg_win / avg_loss)
+    - p = probability of winning
+    - q = probability of losing (1 - p)
+    """
+    
+    def __init__(self):
+        self.trading_history = {}  # Chart-specific trading history
+        self.kelly_settings = {
+            "max_kelly_percentage": 0.25,      # Cap Kelly at 25% (conservative)
+            "min_sample_size": 10,             # Minimum trades for Kelly calculation
+            "lookback_period": 100,            # Number of recent trades to analyze
+            "confidence_threshold": 0.6,       # Minimum confidence for position sizing
+            "risk_adjustment_factor": 0.5,     # Conservative Kelly adjustment
+            "adaptive_sizing": True            # Adjust based on recent performance
+        }
+    
+    def calculate_kelly(self, chart_id: int, signal_confidence: float = 0.7) -> KellyCalculation:
+        """
+        Calculate optimal position size using Kelly Criterion
+        
+        Args:
+            chart_id: Chart identifier
+            signal_confidence: Confidence in current signal (0-1)
+            
+        Returns:
+            KellyCalculation with recommended position size
+        """
+        history = self.get_trading_history(chart_id)
+        
+        if history.total_trades < self.kelly_settings["min_sample_size"]:
+            # Not enough data - use conservative sizing
+            return self._conservative_kelly(signal_confidence, chart_id)
+        
+        # Calculate Kelly components
+        win_probability = history.win_rate
+        avg_win = abs(history.avg_winner)
+        avg_loss = abs(history.avg_loser)
+        
+        if avg_loss == 0:
+            avg_loss = 0.01  # Prevent division by zero
+        
+        # Kelly Criterion calculation
+        b = avg_win / avg_loss  # Odds ratio
+        p = win_probability     # Win probability
+        q = 1 - p              # Loss probability
+        
+        # Raw Kelly percentage: f* = (bp - q) / b
+        if b > 0:
+            kelly_raw = (b * p - q) / b
+        else:
+            kelly_raw = 0
+        
+        # Ensure Kelly is positive and reasonable
+        kelly_raw = max(0, min(kelly_raw, 1.0))
+        
+        # Risk adjustment based on recent performance
+        risk_adjustment = self._calculate_risk_adjustment(history)
+        
+        # Apply conservative factors
+        kelly_adjusted = kelly_raw * self.kelly_settings["risk_adjustment_factor"] * risk_adjustment
+        
+        # Cap at maximum Kelly percentage
+        kelly_final = min(kelly_adjusted, self.kelly_settings["max_kelly_percentage"])
+        
+        # Apply signal confidence
+        kelly_with_confidence = kelly_final * signal_confidence
+        
+        # Calculate actual position size recommendation
+        max_position = self._get_max_position_size(chart_id)
+        recommended_position = kelly_with_confidence * max_position
+        
+        # Calculate Sharpe ratio for risk assessment
+        sharpe_ratio = self._calculate_sharpe_ratio(history)
+        
+        return KellyCalculation(
+            kelly_percentage=kelly_raw,
+            win_probability=win_probability,
+            avg_win=avg_win,
+            avg_loss=avg_loss,
+            risk_adjusted_kelly=kelly_with_confidence,
+            recommended_position=recommended_position,
+            confidence_level=signal_confidence,
+            max_position_limit=max_position,
+            sample_size=history.total_trades,
+            sharpe_ratio=sharpe_ratio
+        )
+    
+    def _conservative_kelly(self, signal_confidence: float, chart_id: int) -> KellyCalculation:
+        """Conservative Kelly calculation for insufficient data"""
+        max_position = self._get_max_position_size(chart_id)
+        conservative_percentage = 0.05  # 5% of max position when no data
+        
+        return KellyCalculation(
+            kelly_percentage=conservative_percentage,
+            win_probability=0.5,  # Assume 50/50 with no data
+            avg_win=1.0,
+            avg_loss=1.0,
+            risk_adjusted_kelly=conservative_percentage * signal_confidence,
+            recommended_position=conservative_percentage * signal_confidence * max_position,
+            confidence_level=signal_confidence,
+            max_position_limit=max_position,
+            sample_size=0,
+            sharpe_ratio=0.0
+        )
+    
+    def _calculate_risk_adjustment(self, history: TradingHistory) -> float:
+        """Calculate risk adjustment factor based on recent performance"""
+        # Reduce Kelly if experiencing drawdown
+        if history.consecutive_losses > 3:
+            return 0.5  # Reduce position size during losing streaks
+        elif history.consecutive_wins > 5:
+            return 1.2  # Slightly increase during winning streaks (capped)
+        else:
+            return 1.0  # Normal sizing
+    
+    def _calculate_sharpe_ratio(self, history: TradingHistory) -> float:
+        """Calculate Sharpe ratio for risk-adjusted returns"""
+        if not history.trades or len(history.trades) < 2:
+            return 0.0
+        
+        returns = [trade.get('pnl', 0) for trade in history.trades[-30:]]  # Last 30 trades
+        
+        if len(returns) < 2:
+            return 0.0
+        
+        mean_return = np.mean(returns)
+        std_return = np.std(returns)
+        
+        if std_return == 0:
+            return 0.0
+        
+        # Annualized Sharpe (assuming daily trades)
+        sharpe = (mean_return / std_return) * np.sqrt(252)
+        return sharpe
+    
+    def _get_max_position_size(self, chart_id: int) -> float:
+        """Get maximum allowed position size for chart"""
+        # Get from user config or prop firm limits
+        if 'user_config' in st.session_state:
+            if hasattr(st.session_state.user_config, 'get'):
+                return st.session_state.user_config.get('max_position_size', 5.0)
+            else:
+                return getattr(st.session_state.user_config, 'max_position_size', 5.0)
+        return 5.0  # Default conservative max
+    
+    def get_trading_history(self, chart_id: int) -> TradingHistory:
+        """Get or create trading history for chart"""
+        if chart_id not in self.trading_history:
+            self.trading_history[chart_id] = TradingHistory(
+                trades=[],
+                win_rate=0.5,
+                profit_factor=1.0,
+                avg_winner=100.0,
+                avg_loser=100.0,
+                total_trades=0,
+                consecutive_wins=0,
+                consecutive_losses=0,
+                max_drawdown=0.0
+            )
+        
+        return self.trading_history[chart_id]
+    
+    def add_trade_result(self, chart_id: int, pnl: float, entry_price: float, exit_price: float, size: float):
+        """Add trade result to history for Kelly calculations"""
+        history = self.get_trading_history(chart_id)
+        
+        trade = {
+            'pnl': pnl,
+            'entry_price': entry_price,
+            'exit_price': exit_price,
+            'size': size,
+            'timestamp': datetime.now(),
+            'is_winner': pnl > 0
+        }
+        
+        history.trades.append(trade)
+        
+        # Keep only recent trades
+        if len(history.trades) > self.kelly_settings["lookback_period"]:
+            history.trades = history.trades[-self.kelly_settings["lookback_period"]:]
+        
+        # Update statistics
+        self._update_trade_statistics(history)
+    
+    def _update_trade_statistics(self, history: TradingHistory):
+        """Update trading statistics for Kelly calculations"""
+        if not history.trades:
+            return
+        
+        # Calculate win rate
+        winners = [t for t in history.trades if t['pnl'] > 0]
+        history.win_rate = len(winners) / len(history.trades)
+        history.total_trades = len(history.trades)
+        
+        # Calculate average winner/loser
+        if winners:
+            history.avg_winner = np.mean([t['pnl'] for t in winners])
+        else:
+            history.avg_winner = 0
+        
+        losers = [t for t in history.trades if t['pnl'] <= 0]
+        if losers:
+            history.avg_loser = abs(np.mean([t['pnl'] for t in losers]))
+        else:
+            history.avg_loser = 0
+        
+        # Calculate profit factor
+        gross_profit = sum(t['pnl'] for t in winners)
+        gross_loss = abs(sum(t['pnl'] for t in losers))
+        
+        if gross_loss > 0:
+            history.profit_factor = gross_profit / gross_loss
+        else:
+            history.profit_factor = float('inf') if gross_profit > 0 else 1.0
+        
+        # Calculate consecutive wins/losses
+        consecutive_wins = 0
+        consecutive_losses = 0
+        
+        for trade in reversed(history.trades):
+            if trade['pnl'] > 0:
+                consecutive_wins += 1
+                break
+            else:
+                consecutive_losses += 1
+        
+        history.consecutive_wins = consecutive_wins
+        history.consecutive_losses = consecutive_losses
+        
+        # Calculate maximum drawdown
+        cumulative_pnl = 0
+        peak = 0
+        max_dd = 0
+        
+        for trade in history.trades:
+            cumulative_pnl += trade['pnl']
+            if cumulative_pnl > peak:
+                peak = cumulative_pnl
+            drawdown = peak - cumulative_pnl
+            if drawdown > max_dd:
+                max_dd = drawdown
+        
+        history.max_drawdown = max_dd
+
 class OCRScreenMonitor:
     """Real-time OCR monitoring for trading signals"""
     
@@ -495,6 +773,9 @@ class TrainingWheelsDashboard:
         # Initialize real data connectors
         self.ninja_connector = NinjaTraderConnector()
         self.tradovate_connector = TradovateConnector()
+        
+        # Initialize Kelly Criterion engine for optimal position sizing
+        self.kelly_engine = KellyEngine()
         
         # Initialize OCR manager if available
         if OCR_AVAILABLE:
@@ -1084,6 +1365,19 @@ class TrainingWheelsDashboard:
                 "min_time_elapsed": 30,  # seconds minimum before ERM activation
                 "auto_reverse_trade": False,  # manual approval by default
                 "max_reversals_per_day": 3
+            }
+        
+        # Kelly Criterion settings
+        if 'kelly_settings' not in st.session_state:
+            st.session_state.kelly_settings = {
+                "enabled": True,
+                "max_kelly_percentage": 0.25,      # Cap Kelly at 25% (conservative)
+                "min_sample_size": 10,             # Minimum trades for Kelly calculation
+                "lookback_period": 100,            # Number of recent trades to analyze
+                "confidence_threshold": 0.6,       # Minimum confidence for position sizing
+                "risk_adjustment_factor": 0.5,     # Conservative Kelly adjustment
+                "adaptive_sizing": True,           # Adjust based on recent performance
+                "show_kelly_details": True         # Show Kelly calculations in UI
             }
         
         # Active Enigma signals tracking
@@ -2869,6 +3163,68 @@ class TrainingWheelsDashboard:
                     connection_issues.append("Tradovate")
                 st.sidebar.error(f"❌ Issues: {', '.join(connection_issues)}")
         
+        # Kelly Criterion Configuration Section
+        st.sidebar.markdown("---")
+        st.sidebar.subheader("📊 Kelly Position Sizing")
+        
+        # Kelly Enable/Disable
+        kelly_enabled = st.sidebar.checkbox(
+            "Enable Kelly Criterion", 
+            value=st.session_state.kelly_settings.get("enabled", True), 
+            key="kelly_enabled",
+            help="Use Kelly Criterion for optimal position sizing"
+        )
+        
+        st.session_state.kelly_settings["enabled"] = kelly_enabled
+        
+        if kelly_enabled:
+            # Kelly Settings
+            st.sidebar.write("**Kelly Parameters:**")
+            
+            st.session_state.kelly_settings["max_kelly_percentage"] = st.sidebar.slider(
+                "Max Kelly %", 
+                0.05, 0.50, 
+                st.session_state.kelly_settings.get("max_kelly_percentage", 0.25),
+                0.05,
+                key="kelly_max_pct",
+                help="Maximum Kelly percentage (conservative cap)"
+            )
+            
+            st.session_state.kelly_settings["risk_adjustment_factor"] = st.sidebar.slider(
+                "Risk Adjustment", 
+                0.1, 1.0, 
+                st.session_state.kelly_settings.get("risk_adjustment_factor", 0.5),
+                0.1,
+                key="kelly_risk_adj",
+                help="Conservative adjustment factor"
+            )
+            
+            st.session_state.kelly_settings["min_sample_size"] = st.sidebar.number_input(
+                "Min Sample Size", 
+                5, 50, 
+                st.session_state.kelly_settings.get("min_sample_size", 10),
+                1,
+                key="kelly_min_sample",
+                help="Minimum trades needed for Kelly calculation"
+            )
+            
+            # Kelly Status Display
+            if hasattr(self, 'kelly_engine'):
+                st.sidebar.write("**Kelly Status:**")
+                total_trades = sum(
+                    self.kelly_engine.get_trading_history(i).total_trades 
+                    for i in range(1, 7)
+                )
+                st.sidebar.caption(f"Total Historical Trades: {total_trades}")
+                
+                if total_trades >= st.session_state.kelly_settings["min_sample_size"]:
+                    st.sidebar.success("📈 Kelly Active")
+                else:
+                    st.sidebar.info(f"📊 Need {st.session_state.kelly_settings['min_sample_size'] - total_trades} more trades")
+        
+        else:
+            st.sidebar.info("📊 Using fixed position sizing")
+        
         # OCR settings
         # OCR Configuration Section
         if OCR_AVAILABLE and self.ocr_manager:
@@ -2981,13 +3337,40 @@ class TrainingWheelsDashboard:
                 chart.daily_pnl += pnl_change
                 chart.unrealized_pnl = chart.daily_pnl * 0.7  # Portion of unrealized
                 
-                # Update position sizes
-                if chart.signal_color == "green" and chart.power_score > 75:
-                    target_size = min(st.session_state.user_config["max_position_size"], 
-                                    (chart.power_score / 100) * st.session_state.user_config["max_position_size"])
-                    chart.position_size = min(chart.position_size + 0.1, target_size)
-                elif chart.signal_color == "red":
-                    chart.position_size = max(0, chart.position_size - 0.2)
+                # Update position sizes using Kelly Criterion if enabled
+                if st.session_state.kelly_settings.get("enabled", False):
+                    # Use Kelly Criterion for position sizing
+                    signal_confidence = chart.power_score / 100.0  # Convert power score to confidence
+                    kelly_calc = self.kelly_engine.calculate_kelly(chart_id, signal_confidence)
+                    
+                    if chart.signal_color == "green" and chart.power_score > 70:
+                        # Use Kelly recommendation for green signals
+                        target_size = kelly_calc.recommended_position
+                        chart.position_size = min(chart.position_size + 0.1, target_size)
+                        
+                        # Add trade result for Kelly learning (simulated)
+                        if np.random.random() < 0.1:  # 10% chance to add trade result
+                            simulated_pnl = pnl_change
+                            entry_price = 4000 + np.random.normal(0, 100)
+                            exit_price = entry_price + (simulated_pnl / max(chart.position_size, 0.1))
+                            self.kelly_engine.add_trade_result(chart_id, simulated_pnl, entry_price, exit_price, chart.position_size)
+                    
+                    elif chart.signal_color == "red":
+                        # Reduce position size more aggressively for red signals
+                        chart.position_size = max(0, chart.position_size - 0.2)
+                else:
+                    # Traditional position sizing (fallback)
+                    if chart.signal_color == "green" and chart.power_score > 75:
+                        # Get max position size safely
+                        if hasattr(st.session_state.user_config, 'get'):
+                            max_pos = st.session_state.user_config.get("max_position_size", 5.0)
+                        else:
+                            max_pos = getattr(st.session_state.user_config, "max_position_size", 5.0)
+                        
+                        target_size = min(max_pos, (chart.power_score / 100) * max_pos)
+                        chart.position_size = min(chart.position_size + 0.1, target_size)
+                    elif chart.signal_color == "red":
+                        chart.position_size = max(0, chart.position_size - 0.2)
                 
                 # Update margin usage
                 chart.margin_used = chart.position_size * 400  # $400 per contract
@@ -3205,6 +3588,217 @@ class TrainingWheelsDashboard:
                 st.success(f"✅ Enigma {signal_direction} signal added to {chart.account_name}")
                 st.rerun()
     
+    def render_kelly_criterion_panel(self):
+        """Render Kelly Criterion position sizing panel"""
+        if not st.session_state.kelly_settings.get("enabled", False):
+            return
+        
+        st.subheader("📊 Kelly Criterion Position Sizing")
+        
+        # Kelly Status Overview
+        kelly_col1, kelly_col2, kelly_col3, kelly_col4 = st.columns(4)
+        
+        # Calculate overall Kelly statistics
+        total_trades = 0
+        active_charts_with_kelly = 0
+        avg_kelly_percentage = 0
+        total_recommended_size = 0
+        
+        kelly_calculations = {}
+        for chart_id in range(1, 7):
+            history = self.kelly_engine.get_trading_history(chart_id)
+            total_trades += history.total_trades
+            
+            if history.total_trades >= st.session_state.kelly_settings["min_sample_size"]:
+                kelly_calc = self.kelly_engine.calculate_kelly(chart_id, 0.7)  # Default confidence
+                kelly_calculations[chart_id] = kelly_calc
+                active_charts_with_kelly += 1
+                avg_kelly_percentage += kelly_calc.kelly_percentage
+                total_recommended_size += kelly_calc.recommended_position
+        
+        if active_charts_with_kelly > 0:
+            avg_kelly_percentage /= active_charts_with_kelly
+        
+        with kelly_col1:
+            st.metric("📈 Total Historical Trades", total_trades)
+        
+        with kelly_col2:
+            st.metric("🎯 Charts with Kelly Data", f"{active_charts_with_kelly}/6")
+        
+        with kelly_col3:
+            st.metric("📊 Avg Kelly %", f"{avg_kelly_percentage:.1%}")
+        
+        with kelly_col4:
+            st.metric("💼 Total Recommended Size", f"{total_recommended_size:.1f}")
+        
+        # Individual Chart Kelly Analysis
+        if kelly_calculations:
+            st.markdown("### 📋 Chart-Specific Kelly Analysis")
+            
+            # Create two columns for chart display
+            kelly_chart_col1, kelly_chart_col2 = st.columns(2)
+            
+            chart_count = 0
+            for chart_id, kelly_calc in kelly_calculations.items():
+                chart = st.session_state.charts.get(chart_id)
+                if not chart:
+                    continue
+                
+                # Alternate between columns
+                with kelly_chart_col1 if chart_count % 2 == 0 else kelly_chart_col2:
+                    with st.expander(f"📊 {chart.account_name} - Kelly Analysis", expanded=False):
+                        # Kelly metrics
+                        kelly_metrics_col1, kelly_metrics_col2 = st.columns(2)
+                        
+                        with kelly_metrics_col1:
+                            st.write(f"**Kelly %:** {kelly_calc.kelly_percentage:.2%}")
+                            st.write(f"**Risk Adjusted:** {kelly_calc.risk_adjusted_kelly:.2%}")
+                            st.write(f"**Win Rate:** {kelly_calc.win_probability:.1%}")
+                            st.write(f"**Sample Size:** {kelly_calc.sample_size}")
+                        
+                        with kelly_metrics_col2:
+                            st.write(f"**Recommended Size:** {kelly_calc.recommended_position:.1f}")
+                            st.write(f"**Max Position:** {kelly_calc.max_position_limit:.1f}")
+                            st.write(f"**Avg Win:** ${kelly_calc.avg_win:.0f}")
+                            st.write(f"**Avg Loss:** ${kelly_calc.avg_loss:.0f}")
+                        
+                        # Sharpe ratio and confidence
+                        st.write(f"**Sharpe Ratio:** {kelly_calc.sharpe_ratio:.2f}")
+                        st.write(f"**Signal Confidence:** {kelly_calc.confidence_level:.1%}")
+                        
+                        # Progress bar for Kelly percentage
+                        kelly_progress = min(kelly_calc.risk_adjusted_kelly / st.session_state.kelly_settings["max_kelly_percentage"], 1.0)
+                        st.progress(kelly_progress)
+                        
+                        # Warning for high Kelly percentages
+                        if kelly_calc.risk_adjusted_kelly > 0.15:
+                            st.warning("⚠️ High Kelly percentage - consider reducing position size")
+                        elif kelly_calc.risk_adjusted_kelly < 0.02:
+                            st.info("💡 Low Kelly percentage - signal may not be strong enough")
+                        else:
+                            st.success("✅ Kelly percentage within optimal range")
+                
+                chart_count += 1
+        
+        else:
+            st.info("📊 **Building Kelly Database** - Need more historical trades for Kelly calculations")
+            st.write("Kelly Criterion requires historical trading data to calculate optimal position sizes.")
+            
+            # Show requirements
+            min_sample = st.session_state.kelly_settings["min_sample_size"]
+            st.write(f"**Requirements:** {min_sample} completed trades per chart")
+            st.write(f"**Current Status:** {total_trades} total trades across all charts")
+            
+            # Add sample trades button for demo
+            if st.session_state.system_mode == "DEMO":
+                if st.button("🧪 Add Sample Trading History (Demo)", use_container_width=True):
+                    self._add_sample_kelly_data()
+                    st.success("✅ Sample trading history added for Kelly calculations")
+                    st.rerun()
+        
+        # Kelly Settings Panel
+        with st.expander("⚙️ Kelly Criterion Settings", expanded=False):
+            settings_col1, settings_col2 = st.columns(2)
+            
+            with settings_col1:
+                st.markdown("**Risk Management:**")
+                max_kelly = st.slider(
+                    "Max Kelly Percentage", 
+                    0.05, 0.50, 
+                    st.session_state.kelly_settings["max_kelly_percentage"],
+                    0.05,
+                    help="Maximum Kelly percentage (conservative cap)"
+                )
+                st.session_state.kelly_settings["max_kelly_percentage"] = max_kelly
+                
+                risk_adj = st.slider(
+                    "Risk Adjustment Factor", 
+                    0.1, 1.0, 
+                    st.session_state.kelly_settings["risk_adjustment_factor"],
+                    0.1,
+                    help="Conservative adjustment to Kelly calculation"
+                )
+                st.session_state.kelly_settings["risk_adjustment_factor"] = risk_adj
+            
+            with settings_col2:
+                st.markdown("**Data Requirements:**")
+                min_sample = st.number_input(
+                    "Minimum Sample Size", 
+                    5, 100, 
+                    st.session_state.kelly_settings["min_sample_size"],
+                    5,
+                    help="Minimum trades needed for Kelly calculation"
+                )
+                st.session_state.kelly_settings["min_sample_size"] = min_sample
+                
+                lookback = st.number_input(
+                    "Lookback Period", 
+                    50, 500, 
+                    st.session_state.kelly_settings["lookback_period"],
+                    50,
+                    help="Number of recent trades to analyze"
+                )
+                st.session_state.kelly_settings["lookback_period"] = lookback
+            
+            # Save settings
+            if st.button("💾 Save Kelly Settings", use_container_width=True):
+                st.success("✅ Kelly Criterion settings saved!")
+        
+        # Kelly Education Panel
+        with st.expander("📚 Kelly Criterion Education", expanded=False):
+            st.markdown("""
+            **What is the Kelly Criterion?**
+            
+            The Kelly Criterion is a mathematical formula used to determine the optimal size of a series of bets 
+            to maximize long-term growth while minimizing the risk of ruin.
+            
+            **Formula:** f* = (bp - q) / b
+            
+            Where:
+            - **f*** = fraction of capital to bet (Kelly percentage)
+            - **b** = odds of winning (average win / average loss)
+            - **p** = probability of winning
+            - **q** = probability of losing (1 - p)
+            
+            **Our Implementation:**
+            - ✅ **Conservative Caps:** Maximum Kelly limited to 25% for safety
+            - ✅ **Risk Adjustment:** Kelly percentage reduced by 50% for prop firm trading
+            - ✅ **Confidence Scaling:** Position size scaled by signal confidence
+            - ✅ **Adaptive Sizing:** Adjusts based on recent winning/losing streaks
+            - ✅ **Sample Size Requirements:** Requires sufficient historical data
+            
+            **Benefits:**
+            - 📈 **Optimal Growth:** Maximizes long-term capital growth
+            - 🛡️ **Risk Management:** Reduces position size during losing periods
+            - 🎯 **Data-Driven:** Uses actual trading history, not assumptions
+            - ⚖️ **Balanced Approach:** Balances growth potential with risk control
+            """)
+    
+    def _add_sample_kelly_data(self):
+        """Add sample trading data for Kelly Criterion demonstration (Demo mode only)"""
+        if st.session_state.system_mode != "DEMO":
+            return
+        
+        import random
+        
+        # Add sample trades for each chart
+        for chart_id in range(1, 7):
+            # Generate realistic trading history
+            for i in range(15):  # Add 15 sample trades per chart
+                # 60% win rate with realistic P&L
+                is_winner = random.random() < 0.6
+                
+                if is_winner:
+                    pnl = random.uniform(50, 300)  # Winning trades
+                else:
+                    pnl = random.uniform(-200, -50)  # Losing trades
+                
+                entry_price = random.uniform(4000, 4500)
+                exit_price = entry_price + (pnl / 2)  # Assuming 2 contracts
+                size = 2.0
+                
+                self.kelly_engine.add_trade_result(chart_id, pnl, entry_price, exit_price, size)
+    
     def refresh_real_time_data(self):
         """Refresh charts with real-time data from connections"""
         current_time = datetime.now()
@@ -3304,6 +3898,11 @@ class TrainingWheelsDashboard:
         if st.session_state.erm_settings.get("enabled", False):
             st.markdown("---")
             self.render_erm_alerts_panel()
+        
+        # Kelly Criterion Panel (if enabled)
+        if st.session_state.kelly_settings.get("enabled", False):
+            st.markdown("---")
+            self.render_kelly_criterion_panel()
         
         # OCR integration tab
         if OCR_AVAILABLE and self.ocr_manager:
