@@ -1,5 +1,5 @@
 """
-🎯 TRAINING WHEELS FOR PROP FIRM TRADERS
+TRAINING WHEELS FOR PROP FIRM TRADERS
 Advanced trading assistance system for prop firm traders
 - Multi-prop firm support (FTMO, MyForexFunds, The5ers, etc.)
 - ERM (Enigma Reversal Momentum) Signal Detection
@@ -20,10 +20,12 @@ import time
 import os
 import socket
 import subprocess
-from datetime import datetime, timedelta
-from dataclasses import dataclass, asdict
-from typing import Dict, List, Optional, Any
+import urllib.request
+import urllib.error
 import logging
+from datetime import datetime, timedelta
+from dataclasses import dataclass, asdict, field
+from typing import Dict, List, Optional, Any
 import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
@@ -43,7 +45,66 @@ except ImportError:
     StreamlitOCRManager = None
 
 @dataclass
+class EnigmaSignal:
+    """Enigma signal data structure for ERM calculation"""
+    signal_type: str  # "LONG" or "SHORT"
+    entry_price: float
+    signal_time: datetime
+    is_active: bool
+    confidence: float
+    
+@dataclass
+class ERMCalculation:
+    """Enigma Reversal Momentum calculation results"""
+    erm_value: float
+    threshold: float
+    is_reversal_triggered: bool
+    reversal_direction: str  # "LONG" or "SHORT" 
+    momentum_velocity: float
+    price_distance: float
+    time_elapsed: float
+
+@dataclass
+class PropFirmConfig:
+    """Prop firm specific configuration"""
+    firm_name: str
+    max_daily_loss: float
+    max_position_size: float
+    max_drawdown: float
+    leverage: float
+    allowed_instruments: List[str]
+    evaluation_period: int  # days
+    profit_target: float
+    risk_rules: Dict[str, Any] = field(default_factory=dict)
+
+@dataclass
 class TradovateAccount:
+    """Individual Tradovate account (Harrison's chart equivalent)"""
+    chart_id: int
+    account_name: str
+    account_balance: float
+    daily_pnl: float
+    margin_used: float
+    margin_remaining: float
+    margin_percentage: float
+    open_positions: int
+    is_active: bool
+    risk_level: str  # "SAFE", "WARNING", "DANGER"
+    last_signal: str
+    power_score: int
+    confluence_level: str
+    signal_color: str  # Harrison's red/yellow/green
+    ninjatrader_connection: str
+    last_update: datetime
+    instruments: List[str]
+    position_size: float
+    entry_price: float
+    unrealized_pnl: float
+    # ERM enhancement fields
+    current_enigma_signal: Optional['EnigmaSignal'] = None
+    erm_last_calculation: Optional['ERMCalculation'] = None
+    price_history: List[float] = field(default_factory=list)
+    time_history: List[datetime] = field(default_factory=list)
     """Individual Tradovate account (Harrison's chart equivalent)"""
     chart_id: int
     account_name: str
@@ -96,10 +157,10 @@ class SystemStatus:
     ninjatrader_status: NinjaTraderStatus
     mode: str  # "DEMO", "TEST", "LIVE"
 
-class HarrisonOriginalDashboard:
+class TrainingWheelsDashboard:
     """
-    Harrison's Original Dashboard - Complete Enhanced Version
-    Clean interface with all professional trading features
+    Training Wheels for Prop Firm Traders
+    Advanced trading assistance system with ERM signal detection
     """
     
     def __init__(self):
@@ -114,139 +175,450 @@ class HarrisonOriginalDashboard:
             self.ocr_manager = None
     
     def setup_page_config(self):
-        """Configure Streamlit page (Harrison's clean style)"""
+        """Configure Streamlit page for prop firm training"""
         try:
             st.set_page_config(
-                page_title="Harrison's Trading Dashboard",
-                page_icon="🎯",
+                page_title="Training Wheels for Prop Firm Traders",
+                page_icon="TW",
                 layout="wide",
                 initial_sidebar_state="expanded"
             )
         except:
             pass
         
-        # Harrison's original clean CSS with enhancements
+        # Professional blue design for prop firm environment
         st.markdown("""
         <style>
-        /* Harrison's original clean styling */
+        /* Import professional fonts */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        /* Global Reset and Base Styling */
         .main > div {
-            padding: 0.5rem;
+            padding: 1.5rem 2rem;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            min-height: 100vh;
         }
         
-        /* Clean metric cards (Harrison's style) */
-        .stMetric {
-            background-color: #f8f9fa;
-            border: 1px solid #dee2e6;
+        /* Professional Header Design */
+        .prop-firm-header {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            color: white;
+            padding: 2.5rem;
+            border-radius: 16px;
+            margin-bottom: 2rem;
+            box-shadow: 0 8px 32px rgba(30, 58, 138, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .header-title {
+            font-size: 2.75rem;
+            font-weight: 700;
+            margin: 0;
+            letter-spacing: -0.025em;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .header-subtitle {
+            font-size: 1.25rem;
+            opacity: 0.9;
+            margin: 0.75rem 0 0 0;
+            font-weight: 400;
+        }
+        
+        /* Status Badges - Clean and Professional */
+        .status-badge {
+            padding: 0.5rem 1.25rem;
             border-radius: 8px;
-            padding: 12px;
-            margin: 8px 0;
-        }
-        
-        /* Harrison's signal colors */
-        .signal-green {
-            background-color: #28a745;
-            color: white;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-weight: bold;
+            font-weight: 600;
+            font-size: 0.875rem;
             display: inline-block;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin: 0.25rem;
         }
         
-        .signal-yellow {
-            background-color: #ffc107;
-            color: black;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-weight: bold;
-            display: inline-block;
-        }
-        
-        .signal-red {
-            background-color: #dc3545;
-            color: white;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-weight: bold;
-            display: inline-block;
-        }
-        
-        /* Clean chart boxes (Harrison's design) */
-        .chart-box {
-            border: 2px solid #6c757d;
-            border-radius: 12px;
-            padding: 16px;
-            margin: 12px 0;
-            background-color: #ffffff;
-        }
-        
-        .chart-safe {
-            border-color: #28a745;
-            background-color: #d4edda;
-        }
-        
-        .chart-warning {
-            border-color: #ffc107;
-            background-color: #fff3cd;
-        }
-        
-        .chart-danger {
-            border-color: #dc3545;
-            background-color: #f8d7da;
-        }
-        
-        /* Harrison's margin indicator */
-        .margin-indicator {
-            height: 40px;
-            border-radius: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            color: white;
-            margin: 15px 0;
-            font-size: 18px;
-        }
-        
-        /* Mode indicators */
         .mode-demo {
-            background-color: #17a2b8;
+            background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
             color: white;
-            padding: 4px 12px;
-            border-radius: 15px;
-            font-weight: bold;
+            box-shadow: 0 2px 8px rgba(14, 165, 233, 0.3);
         }
         
         .mode-test {
-            background-color: #ffc107;
-            color: black;
-            padding: 4px 12px;
-            border-radius: 15px;
-            font-weight: bold;
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+            box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
         }
         
         .mode-live {
-            background-color: #dc3545;
+            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
             color: white;
-            padding: 4px 12px;
-            border-radius: 15px;
-            font-weight: bold;
+            box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3);
         }
         
-        /* NinjaTrader status */
-        .ninja-connected {
-            background-color: #28a745;
+        .connection-active {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
             color: white;
-            padding: 6px 12px;
-            border-radius: 15px;
-            font-weight: bold;
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
         }
         
-        .ninja-disconnected {
-            background-color: #dc3545;
+        .connection-inactive {
+            background: linear-gradient(135deg, #64748b 0%, #475569 100%);
             color: white;
-            padding: 6px 12px;
-            border-radius: 15px;
-            font-weight: bold;
+            box-shadow: 0 2px 8px rgba(100, 116, 139, 0.3);
+        }
+        
+        /* Professional Metric Cards */
+        .stMetric {
+            background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 1.75rem;
+            margin: 1rem 0;
+            box-shadow: 0 4px 16px rgba(30, 58, 138, 0.08);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .stMetric::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #3b82f6 0%, #1d4ed8 100%);
+        }
+        
+        .stMetric:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(30, 58, 138, 0.15);
+            border-color: #3b82f6;
+        }
+        
+        /* Section Headers - Corporate Style */
+        .section-header {
+            background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+            color: white;
+            padding: 1.25rem 2rem;
+            border-radius: 12px;
+            margin: 2rem 0 1.5rem 0;
+            font-weight: 600;
+            font-size: 1.125rem;
+            box-shadow: 0 4px 16px rgba(30, 64, 175, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        /* Trading Chart Containers */
+        .chart-container {
+            background: #ffffff;
+            border: 2px solid #e2e8f0;
+            border-radius: 16px;
+            padding: 2rem;
+            margin: 1.5rem 0;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+            position: relative;
+        }
+        
+        .chart-container:hover {
+            border-color: #3b82f6;
+            box-shadow: 0 8px 24px rgba(59, 130, 246, 0.15);
+            transform: translateY(-1px);
+        }
+        
+        .chart-safe {
+            border-color: #10b981;
+            background: linear-gradient(145deg, #ffffff 0%, #f0fdf4 100%);
+        }
+        
+        .chart-safe::before {
+            content: 'SAFE';
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: #10b981;
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        
+        .chart-warning {
+            border-color: #f59e0b;
+            background: linear-gradient(145deg, #ffffff 0%, #fffbeb 100%);
+        }
+        
+        .chart-warning::before {
+            content: 'WARNING';
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: #f59e0b;
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        
+        .chart-danger {
+            border-color: #ef4444;
+            background: linear-gradient(145deg, #ffffff 0%, #fef2f2 100%);
+        }
+        
+        .chart-danger::before {
+            content: 'DANGER';
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: #ef4444;
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        
+        /* Signal Indicators - Professional Trading Style */
+        .signal-long {
+            background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.875rem;
+            display: inline-block;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            box-shadow: 0 2px 8px rgba(5, 150, 105, 0.3);
+        }
+        
+        .signal-short {
+            background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.875rem;
+            display: inline-block;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3);
+        }
+        
+        .signal-neutral {
+            background: linear-gradient(135deg, #64748b 0%, #94a3b8 100%);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.875rem;
+            display: inline-block;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            box-shadow: 0 2px 8px rgba(100, 116, 139, 0.3);
+        }
+        
+        /* Risk Status Indicators */
+        .status-indicator {
+            padding: 2rem;
+            border-radius: 12px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 1.25rem;
+            margin: 1.5rem 0;
+            border: 2px solid transparent;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+        }
+        
+        .status-safe {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            border-color: #047857;
+        }
+        
+        .status-warning {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+            border-color: #b45309;
+        }
+        
+        .status-danger {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: white;
+            border-color: #b91c1c;
+        }
+        
+        /* Professional Button Styling */
+        .stButton > button {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 0.875rem 1.75rem;
+            font-weight: 600;
+            font-size: 0.875rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.25);
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+        }
+        
+        .stButton > button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px rgba(59, 130, 246, 0.35);
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        }
+        
+        .stButton > button:active {
+            transform: translateY(0);
+        }
+        
+        /* Emergency/Critical Buttons */
+        .stButton > button[kind="secondary"] {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            box-shadow: 0 2px 8px rgba(239, 68, 68, 0.25);
+        }
+        
+        .stButton > button[kind="secondary"]:hover {
+            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+            box-shadow: 0 4px 16px rgba(239, 68, 68, 0.35);
+        }
+        
+        /* Sidebar Professional Styling */
+        .css-1d391kg {
+            background: linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%);
+        }
+        
+        /* Progress Bars */
+        .stProgress > div > div {
+            background: linear-gradient(90deg, #3b82f6 0%, #1d4ed8 100%);
+            border-radius: 4px;
+            height: 8px;
+        }
+        
+        /* Alert Styling for Prop Firm Environment */
+        .alert-success {
+            background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+            border-left: 4px solid #10b981;
+            color: #047857;
+            padding: 1.25rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            font-weight: 500;
+        }
+        
+        .alert-warning {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border-left: 4px solid #f59e0b;
+            color: #92400e;
+            padding: 1.25rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            font-weight: 500;
+        }
+        
+        .alert-danger {
+            background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+            border-left: 4px solid #ef4444;
+            color: #b91c1c;
+            padding: 1.25rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            font-weight: 500;
+        }
+        
+        /* Data Tables - Professional Trading View */
+        .dataframe {
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            overflow: hidden;
+            background: white;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        }
+        
+        .dataframe thead th {
+            background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+            color: white;
+            font-weight: 600;
+            padding: 1rem;
+        }
+        
+        /* Prop Firm Specific Elements */
+        .prop-firm-badge {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3730a3 100%);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.875rem;
+            display: inline-block;
+            box-shadow: 0 2px 8px rgba(30, 58, 138, 0.3);
+        }
+        
+        .risk-metrics {
+            background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        }
+        
+        /* Responsive Design for Different Screen Sizes */
+        @media (max-width: 1200px) {
+            .main > div {
+                padding: 1rem 1.5rem;
+            }
+            
+            .header-title {
+                font-size: 2.25rem;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .main > div {
+                padding: 0.75rem 1rem;
+            }
+            
+            .header-title {
+                font-size: 1.875rem;
+            }
+            
+            .chart-container {
+                padding: 1.25rem;
+            }
+            
+            .status-indicator {
+                padding: 1.5rem;
+                font-size: 1rem;
+            }
+        }
+        
+        /* Professional Loading States */
+        .stSpinner > div {
+            border-color: #3b82f6;
+        }
+        
+        /* Custom Scrollbars */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
         }
         </style>
         """, unsafe_allow_html=True)
@@ -343,6 +715,37 @@ class HarrisonOriginalDashboard:
                 "connection_errors": []
             }
         
+        # Prop firm configurations
+        if 'prop_firms' not in st.session_state:
+            st.session_state.prop_firms = self.create_prop_firm_configs()
+        
+        if 'selected_prop_firm' not in st.session_state:
+            st.session_state.selected_prop_firm = "FTMO"  # Default
+        
+        # ERM (Enigma Reversal Momentum) settings
+        if 'erm_settings' not in st.session_state:
+            st.session_state.erm_settings = {
+                "enabled": True,
+                "lookback_periods": 5,  # minutes for momentum calculation
+                "atr_multiplier": 0.5,  # threshold multiplier
+                "min_time_elapsed": 30,  # seconds minimum before ERM activation
+                "auto_reverse_trade": False,  # manual approval by default
+                "max_reversals_per_day": 3
+            }
+        
+        # Active Enigma signals tracking
+        if 'active_enigma_signals' not in st.session_state:
+            st.session_state.active_enigma_signals = {}  # chart_id: EnigmaSignal
+        
+        # ERM alerts and history
+        if 'erm_alerts' not in st.session_state:
+            st.session_state.erm_alerts = []
+        
+        if 'erm_history' not in st.session_state:
+            st.session_state.erm_history = []
+        if 'charts' not in st.session_state:
+            st.session_state.charts = self.create_default_charts()
+        
         # Charts (Harrison's 6-chart design)
         if 'charts' not in st.session_state:
             st.session_state.charts = self.create_default_charts()
@@ -352,6 +755,66 @@ class HarrisonOriginalDashboard:
             
         if 'last_update' not in st.session_state:
             st.session_state.last_update = datetime.now()
+    
+    def create_prop_firm_configs(self) -> Dict[str, PropFirmConfig]:
+        """Create prop firm configurations for different firms"""
+        return {
+            "FTMO": PropFirmConfig(
+                firm_name="FTMO",
+                max_daily_loss=5000.0,
+                max_position_size=10.0,
+                max_drawdown=10000.0,
+                leverage=100,
+                allowed_instruments=["ES", "NQ", "YM", "RTY", "CL", "GC", "EURUSD", "GBPUSD"],
+                risk_rules={"max_lot_size": 10, "news_trading": False},
+                evaluation_period=30,
+                profit_target=10000.0
+            ),
+            "MyForexFunds": PropFirmConfig(
+                firm_name="MyForexFunds",
+                max_daily_loss=4000.0,
+                max_position_size=8.0,
+                max_drawdown=8000.0,
+                leverage=100,
+                allowed_instruments=["ES", "NQ", "EURUSD", "GBPUSD", "USDJPY"],
+                risk_rules={"max_lot_size": 8, "weekend_trading": False},
+                evaluation_period=45,
+                profit_target=8000.0
+            ),
+            "The5ers": PropFirmConfig(
+                firm_name="The5ers",
+                max_daily_loss=3000.0,
+                max_position_size=6.0,
+                max_drawdown=6000.0,
+                leverage=50,
+                allowed_instruments=["ES", "NQ", "YM", "EURUSD", "GBPUSD"],
+                risk_rules={"max_lot_size": 6, "scalping_allowed": True},
+                evaluation_period=60,
+                profit_target=6000.0
+            ),
+            "TopStep": PropFirmConfig(
+                firm_name="TopStep",
+                max_daily_loss=2500.0,
+                max_position_size=5.0,
+                max_drawdown=5000.0,
+                leverage=25,
+                allowed_instruments=["ES", "NQ", "YM", "RTY", "CL"],
+                risk_rules={"max_contracts": 5, "overnight_margin": 2.0},
+                evaluation_period=90,
+                profit_target=5000.0
+            ),
+            "Custom": PropFirmConfig(
+                firm_name="Custom",
+                max_daily_loss=2000.0,
+                max_position_size=5.0,
+                max_drawdown=4000.0,
+                leverage=50,
+                allowed_instruments=["ES", "NQ", "YM", "RTY", "CL", "GC"],
+                risk_rules={},
+                evaluation_period=30,
+                profit_target=4000.0
+            )
+        }
     
     def create_default_charts(self) -> Dict[int, TradovateAccount]:
         """Create Harrison's default 6-chart configuration"""
@@ -501,39 +964,224 @@ class HarrisonOriginalDashboard:
             self.logger.error(f"Error testing Tradovate connection: {e}")
             return False
     
+    def calculate_erm(self, chart_id: int, current_price: float) -> Optional[ERMCalculation]:
+        """
+        Calculate Enigma Reversal Momentum (ERM) using Michael Canfield's formula
+        
+        ERM = (P_current - E_price) × V_momentum
+        where V_momentum = (P_current - P_n) / T_elapsed
+        """
+        chart = st.session_state.charts.get(chart_id)
+        if not chart or not chart.current_enigma_signal:
+            return None
+        
+        enigma_signal = chart.current_enigma_signal
+        if not enigma_signal.is_active:
+            return None
+        
+        # Get time elapsed since signal
+        time_elapsed = (datetime.now() - enigma_signal.signal_time).total_seconds() / 60.0  # minutes
+        
+        # Minimum time check
+        if time_elapsed < (st.session_state.erm_settings["min_time_elapsed"] / 60.0):
+            return None
+        
+        # Initialize price history if needed
+        if chart.price_history is None:
+            chart.price_history = []
+            chart.time_history = []
+        
+        # Add current price to history
+        chart.price_history.append(current_price)
+        chart.time_history.append(datetime.now())
+        
+        # Keep only recent history (lookback periods)
+        lookback = st.session_state.erm_settings["lookback_periods"]
+        if len(chart.price_history) > lookback + 1:
+            chart.price_history = chart.price_history[-(lookback + 1):]
+            chart.time_history = chart.time_history[-(lookback + 1):]
+        
+        # Need at least 2 points for momentum calculation
+        if len(chart.price_history) < 2:
+            return None
+        
+        # Calculate momentum velocity
+        p_n = chart.price_history[0]  # Price n periods ago
+        t_elapsed = (chart.time_history[-1] - chart.time_history[0]).total_seconds() / 60.0  # minutes
+        
+        if t_elapsed <= 0:
+            return None
+        
+        v_momentum = (current_price - p_n) / t_elapsed
+        
+        # Calculate price distance from Enigma entry
+        price_distance = current_price - enigma_signal.entry_price
+        
+        # Calculate ERM
+        erm_value = price_distance * v_momentum
+        
+        # Calculate dynamic threshold based on ATR
+        atr_estimate = self.estimate_atr(chart_id)
+        threshold = st.session_state.erm_settings["atr_multiplier"] * atr_estimate
+        
+        # Determine if reversal is triggered
+        is_reversal_triggered = False
+        reversal_direction = ""
+        
+        if enigma_signal.signal_type == "LONG":
+            # Looking for bearish reversal (ERM > +threshold)
+            if erm_value > threshold:
+                is_reversal_triggered = True
+                reversal_direction = "SHORT"
+        elif enigma_signal.signal_type == "SHORT":
+            # Looking for bullish reversal (ERM < -threshold)
+            if erm_value < -threshold:
+                is_reversal_triggered = True
+                reversal_direction = "LONG"
+        
+        erm_calculation = ERMCalculation(
+            erm_value=erm_value,
+            threshold=threshold,
+            is_reversal_triggered=is_reversal_triggered,
+            reversal_direction=reversal_direction,
+            momentum_velocity=v_momentum,
+            price_distance=price_distance,
+            time_elapsed=time_elapsed
+        )
+        
+        # Store calculation result
+        chart.erm_last_calculation = erm_calculation
+        
+        # Handle reversal trigger
+        if is_reversal_triggered:
+            self.handle_erm_reversal(chart_id, erm_calculation)
+        
+        return erm_calculation
+    
+    def estimate_atr(self, chart_id: int) -> float:
+        """Estimate Average True Range for dynamic threshold calculation"""
+        chart = st.session_state.charts.get(chart_id)
+        if not chart or not chart.price_history or len(chart.price_history) < 2:
+            # Default ATR estimates for common instruments
+            instrument = chart.instruments[0] if chart and chart.instruments else "ES"
+            atr_defaults = {
+                "ES": 4.0, "NQ": 15.0, "YM": 40.0, "RTY": 8.0,
+                "CL": 0.8, "GC": 10.0, "EURUSD": 0.0008, "GBPUSD": 0.0010
+            }
+            return atr_defaults.get(instrument, 2.0)
+        
+        # Simple ATR estimation from recent price swings
+        prices = chart.price_history[-10:]  # Last 10 prices
+        if len(prices) < 2:
+            return 2.0
+        
+        ranges = []
+        for i in range(1, len(prices)):
+            ranges.append(abs(prices[i] - prices[i-1]))
+        
+        return sum(ranges) / len(ranges) if ranges else 2.0
+    
+    def handle_erm_reversal(self, chart_id: int, erm_calc: ERMCalculation):
+        """Handle ERM reversal signal detection"""
+        chart = st.session_state.charts.get(chart_id)
+        if not chart:
+            return
+        
+        # Create alert
+        alert = {
+            "timestamp": datetime.now(),
+            "chart_id": chart_id,
+            "chart_name": chart.account_name,
+            "erm_value": erm_calc.erm_value,
+            "threshold": erm_calc.threshold,
+            "reversal_direction": erm_calc.reversal_direction,
+            "original_signal": chart.current_enigma_signal.signal_type,
+            "momentum": erm_calc.momentum_velocity,
+            "price_distance": erm_calc.price_distance
+        }
+        
+        # Add to alerts
+        st.session_state.erm_alerts.append(alert)
+        
+        # Keep only recent alerts (last 20)
+        if len(st.session_state.erm_alerts) > 20:
+            st.session_state.erm_alerts = st.session_state.erm_alerts[-20:]
+        
+        # Update chart status
+        chart.signal_color = "red"  # Visual indication of reversal
+        chart.risk_level = "WARNING"
+        
+        # Auto-reverse trade if enabled
+        if st.session_state.erm_settings["auto_reverse_trade"]:
+            self.execute_reversal_trade(chart_id, erm_calc.reversal_direction)
+        
+        # Deactivate original Enigma signal
+        if chart.current_enigma_signal:
+            chart.current_enigma_signal.is_active = False
+    
+    def execute_reversal_trade(self, chart_id: int, direction: str):
+        """Execute automatic reversal trade (simulation)"""
+        chart = st.session_state.charts.get(chart_id)
+        if not chart:
+            return
+        
+        # Simulate trade execution
+        if direction == "LONG":
+            chart.position_size = abs(chart.position_size) if chart.position_size < 0 else chart.position_size + 1
+            chart.signal_color = "green"
+        elif direction == "SHORT":
+            chart.position_size = -abs(chart.position_size) if chart.position_size > 0 else chart.position_size - 1
+            chart.signal_color = "red"
+        
+        # Update chart status
+        chart.last_signal = f"ERM {direction}"
+        chart.last_update = datetime.now()
+        chart.ninjatrader_connection = "ERM Auto-Trade"
+    
     def render_header(self):
-        """Render Harrison's clean header with enhanced status"""
+        """Render professional header for prop firm environment"""
+        # Professional header container
+        st.markdown('<div class="prop-firm-header">', unsafe_allow_html=True)
+        
         col1, col2, col3 = st.columns([1, 2, 1])
         
         with col1:
             # Mode indicator
             mode_class = f"mode-{st.session_state.system_mode.lower()}"
-            st.markdown(f'<div class="{mode_class}">{st.session_state.system_mode} MODE</div>', unsafe_allow_html=True)
+            mode_text = f"{st.session_state.system_mode} MODE"
+            st.markdown(f'<div class="status-badge {mode_class}">{mode_text}</div>', unsafe_allow_html=True)
             
             # NinjaTrader status
             ninja_connected = self.check_ninjatrader_connection()
-            status_class = "ninja-connected" if ninja_connected else "ninja-disconnected"
-            status_text = "🥷 NT: Connected" if ninja_connected else "🥷 NT: Disconnected"
-            st.markdown(f'<div class="{status_class}">{status_text}</div>', unsafe_allow_html=True)
+            status_class = "connection-active" if ninja_connected else "connection-inactive"
+            status_text = "NT: Connected" if ninja_connected else "NT: Disconnected"
+            st.markdown(f'<div class="status-badge {status_class}">{status_text}</div>', unsafe_allow_html=True)
         
         with col2:
-            st.title("🎯 Harrison's 6-Chart Trading Control Panel")
-            # Safe access to config with fallbacks
-            platform = st.session_state.user_config.get('platform', 'NinjaTrader 8')
-            broker = st.session_state.user_config.get('broker', 'Tradovate')
+            st.markdown('<h1 class="header-title">TRAINING WHEELS</h1>', unsafe_allow_html=True)
+            st.markdown('<h2 class="header-subtitle">Professional Prop Firm Trading Platform</h2>', unsafe_allow_html=True)
+            # Display selected prop firm and trader info
+            selected_firm = st.session_state.get('selected_prop_firm', 'FTMO')
             trader_name = st.session_state.user_config.get('trader_name', 'Trader')
-            account_type = f"{platform} + {broker}"
-            st.markdown(f"**{trader_name}'s {account_type} Dashboard**")
+            st.markdown(f'<p class="header-subtitle">{trader_name} | {selected_firm} Challenge Dashboard</p>', unsafe_allow_html=True)
+            
+            # Show ERM status if enabled
+            if st.session_state.erm_settings.get("enabled", False):
+                active_signals = len([s for s in st.session_state.active_enigma_signals.values() if s.is_active])
+                st.markdown(f'<p class="header-subtitle">ERM System Active | {active_signals} Signals Monitored</p>', unsafe_allow_html=True)
         
         with col3:
-            # Real-time clock and account count
-            st.markdown(f"**{datetime.now().strftime('%H:%M:%S')}**")
+            # Real-time system status
+            current_time = datetime.now().strftime('%H:%M:%S')
+            st.markdown(f'<div style="text-align: right; font-size: 1.1rem; font-weight: 600;">TIME: {current_time}</div>', unsafe_allow_html=True)
             active_accounts = sum(1 for chart in st.session_state.charts.values() if chart.is_active)
-            st.markdown(f"Active: {active_accounts} accounts")
+            st.markdown(f'<div style="text-align: right; opacity: 0.9;">ACTIVE ACCOUNTS: {active_accounts}/6</div>', unsafe_allow_html=True)
+        
+        st.markdown('</div>', unsafe_allow_html=True)
     
     def render_priority_indicator(self):
-        """Render Harrison's most important indicator - Overall Margin"""
-        st.subheader("💰 OVERALL MARGIN STATUS (Most Important)")
+        """Render professional margin status indicator"""
+        st.markdown('<div class="section-header">Overall Margin Status (Priority Indicator)</div>', unsafe_allow_html=True)
         
         # Calculate total margin across all accounts
         total_margin_used = sum(chart.margin_used for chart in st.session_state.charts.values())
@@ -545,52 +1193,47 @@ class HarrisonOriginalDashboard:
         st.session_state.system_status.total_margin_remaining = margin_remaining
         st.session_state.system_status.total_margin_percentage = margin_percentage
         
-        # Harrison's clean margin display
+        # Professional margin display
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            st.metric("💰 Available Margin", f"${margin_remaining:,.0f}")
+            st.metric("Available Margin", f"${margin_remaining:,.0f}")
         
         with col2:
-            st.metric("📊 Used Margin", f"${total_margin_used:,.0f}")
+            st.metric("Used Margin", f"${total_margin_used:,.0f}")
         
         with col3:
-            color = "green" if margin_percentage > 50 else "orange" if margin_percentage > 20 else "red"
-            st.metric("📈 Margin %", f"{margin_percentage:.1f}%")
+            st.metric("Margin Percentage", f"{margin_percentage:.1f}%")
         
         with col4:
             daily_pnl = st.session_state.system_status.daily_profit_loss
-            st.metric("💵 Daily P&L", f"${daily_pnl:,.0f}", delta=f"{daily_pnl:+.0f}")
+            st.metric("Daily P&L", f"${daily_pnl:,.0f}", delta=f"{daily_pnl:+.0f}")
         
-        # Harrison's visual margin indicator
+        # Professional status indicator
         if margin_percentage > 50:
-            color = "#28a745"
-            status = "SAFE"
+            status_class = "status-safe"
+            status_text = f"MARGIN STATUS: SAFE ({margin_percentage:.1f}% Available)"
         elif margin_percentage > 20:
-            color = "#ffc107"
-            status = "WARNING"
+            status_class = "status-warning"
+            status_text = f"MARGIN STATUS: WARNING ({margin_percentage:.1f}% Available)"
         else:
-            color = "#dc3545"
-            status = "DANGER"
+            status_class = "status-danger"
+            status_text = f"MARGIN STATUS: DANGER ({margin_percentage:.1f}% Available)"
         
-        st.markdown(f"""
-        <div class="margin-indicator" style="background-color: {color}">
-            MARGIN STATUS: {status} ({margin_percentage:.1f}% Available)
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(f'<div class="status-indicator {status_class}">{status_text}</div>', unsafe_allow_html=True)
         
         # Progress bar for visual impact
         progress_value = max(0, min(100, margin_percentage)) / 100
         st.progress(progress_value)
         
         if margin_percentage < 25:
-            st.error("⚠️ LOW MARGIN WARNING - Consider reducing positions!")
+            st.error("LOW MARGIN WARNING - Consider reducing positions!")
     
     def render_chart_grid(self):
-        """Render Harrison's 6-chart grid with enhanced features"""
-        st.subheader("📊 6-Chart Control Grid")
+        """Render professional 6-chart grid"""
+        st.markdown('<div class="section-header">6-Chart Control Grid</div>', unsafe_allow_html=True)
         
-        # Harrison's 2x3 layout
+        # Professional 2x3 layout
         for row in range(2):
             cols = st.columns(3)
             for col_idx in range(3):
@@ -599,25 +1242,33 @@ class HarrisonOriginalDashboard:
                     self.render_individual_chart(chart_id)
     
     def render_individual_chart(self, chart_id: int):
-        """Render individual chart with Harrison's clean design + enhanced features"""
+        """Render individual chart with professional design"""
         chart = st.session_state.charts.get(chart_id)
         if not chart:
             return
         
         # Determine chart status and styling
         chart_class = f"chart-{chart.risk_level.lower()}" if chart.risk_level != "SAFE" else "chart-safe"
-        signal_class = f"signal-{chart.signal_color}"
         
-        # Harrison's clean chart box
+        # Professional chart container
         with st.container():
-            st.markdown(f'<div class="chart-box {chart_class}">', unsafe_allow_html=True)
+            st.markdown(f'<div class="chart-container {chart_class}">', unsafe_allow_html=True)
             
             # Chart header with signal indicator
             col1, col2 = st.columns([2, 1])
             with col1:
                 st.markdown(f"### {chart.account_name}")
             with col2:
-                st.markdown(f'<div class="{signal_class}">{chart.signal_color.upper()}</div>', unsafe_allow_html=True)
+                if chart.signal_color == "green":
+                    signal_class = "signal-long"
+                    signal_text = "LONG"
+                elif chart.signal_color == "red":
+                    signal_class = "signal-short"
+                    signal_text = "SHORT"
+                else:
+                    signal_class = "signal-neutral"
+                    signal_text = "NEUTRAL"
+                st.markdown(f'<div class="{signal_class}">{signal_text}</div>', unsafe_allow_html=True)
             
             # Enable/disable toggle
             chart.is_active = st.checkbox(
@@ -626,7 +1277,7 @@ class HarrisonOriginalDashboard:
                 key=f"enable_{chart_id}"
             )
             
-            # Chart metrics in Harrison's clean layout
+            # Chart metrics in professional layout
             metric_col1, metric_col2 = st.columns(2)
             
             with metric_col1:
@@ -641,19 +1292,19 @@ class HarrisonOriginalDashboard:
             
             # Instruments and connection status
             instruments_str = " | ".join(chart.instruments)
-            st.caption(f"📊 Instruments: {instruments_str}")
-            st.caption(f"🔗 NT: {chart.ninjatrader_connection}")
-            st.caption(f"⏰ Updated: {chart.last_update.strftime('%H:%M:%S')}")
+            st.caption(f"Instruments: {instruments_str}")
+            st.caption(f"Connection: {chart.ninjatrader_connection}")
+            st.caption(f"Updated: {chart.last_update.strftime('%H:%M:%S')}")
             
             # Chart controls
             control_col1, control_col2 = st.columns(2)
             
             with control_col1:
-                if st.button(f"📈 Details", key=f"details_{chart_id}"):
+                if st.button(f"Details", key=f"details_{chart_id}", use_container_width=True):
                     self.show_chart_details(chart_id)
             
             with control_col2:
-                if st.button(f"🚨 Stop", key=f"stop_{chart_id}"):
+                if st.button(f"Stop", key=f"stop_{chart_id}", use_container_width=True):
                     chart.is_active = False
                     chart.signal_color = "red"
                     st.rerun()
@@ -666,11 +1317,11 @@ class HarrisonOriginalDashboard:
         if not chart:
             return
         
-        with st.expander(f"📊 {chart.account_name} - Detailed Analysis", expanded=True):
+        with st.expander(f"Chart Analysis: {chart.account_name}", expanded=True):
             detail_col1, detail_col2, detail_col3 = st.columns(3)
             
             with detail_col1:
-                st.subheader("📈 Signal Analysis")
+                st.subheader("Signal Analysis")
                 st.write(f"**Power Score:** {chart.power_score}%")
                 st.write(f"**Signal Color:** {chart.signal_color.upper()}")
                 st.write(f"**Risk Level:** {chart.risk_level}")
@@ -678,7 +1329,7 @@ class HarrisonOriginalDashboard:
                 st.write(f"**Confluence:** {chart.confluence_level}")
             
             with detail_col2:
-                st.subheader("💰 Position Details")
+                st.subheader("Position Details")
                 st.write(f"**Position Size:** {chart.position_size:.2f}")
                 st.write(f"**Entry Price:** ${chart.entry_price:.2f}")
                 st.write(f"**Unrealized P&L:** ${chart.unrealized_pnl:,.2f}")
@@ -686,14 +1337,14 @@ class HarrisonOriginalDashboard:
                 st.write(f"**Account Balance:** ${chart.account_balance:,.2f}")
             
             with detail_col3:
-                st.subheader("⚙️ Controls & Status")
+                st.subheader("Controls & Status")
                 st.write(f"**Status:** {'Active' if chart.is_active else 'Inactive'}")
-                st.write(f"**NT Connection:** {chart.ninjatrader_connection}")
+                st.write(f"**Connection:** {chart.ninjatrader_connection}")
                 st.write(f"**Instruments:** {', '.join(chart.instruments)}")
                 st.write(f"**Last Update:** {chart.last_update.strftime('%Y-%m-%d %H:%M:%S')}")
                 
                 # Manual controls
-                if st.button(f"🔄 Force Update", key=f"force_update_{chart_id}"):
+                if st.button(f"Force Update", key=f"force_update_{chart_id}", use_container_width=True):
                     chart.last_update = datetime.now()
                     st.success("Chart updated!")
                     st.rerun()
@@ -705,7 +1356,7 @@ class HarrisonOriginalDashboard:
         st.markdown("Configure your NinjaTrader and Tradovate connections")
         
         # Tabs for different connection types
-        tab1, tab2, tab3 = st.tabs(["🥷 NinjaTrader Setup", "📈 Tradovate Setup", "✅ Test Connections"])
+        tab1, tab2, tab3 = st.tabs(["NinjaTrader Setup", "Tradovate Setup", "Test Connections"])
         
         with tab1:
             self.render_ninjatrader_setup()
@@ -717,7 +1368,7 @@ class HarrisonOriginalDashboard:
             self.render_connection_testing()
         
         # Close button
-        if st.button("✅ Done - Close Setup", type="primary", use_container_width=True):
+        if st.button("Done - Close Setup", type="primary", use_container_width=True):
             st.session_state.show_connection_setup = False
             st.rerun()
     
@@ -757,7 +1408,7 @@ class HarrisonOriginalDashboard:
         
         # Strategy configuration
         st.markdown("---")
-        st.subheader("📊 Strategy Settings")
+        st.subheader("Strategy Settings")
         
         available_strategies = [
             "MarketAnalyzer", "Chart Trader", "ATM Strategy",
@@ -772,20 +1423,20 @@ class HarrisonOriginalDashboard:
         
         # Test NinjaTrader connection
         st.markdown("---")
-        if st.button("🔍 Test NinjaTrader Connection", use_container_width=True):
+        if st.button("Test NinjaTrader Connection", use_container_width=True):
             if self.check_ninjatrader_connection():
-                st.success("✅ NinjaTrader detected and connected!")
+                st.success("NinjaTrader detected and connected!")
                 # Get process details
                 ninja_status = st.session_state.ninjatrader_status
                 st.info(f"Process ID: {ninja_status.process_id}")
                 st.info(f"Memory Usage: {ninja_status.memory_usage:.1f} MB")
             else:
-                st.error("❌ NinjaTrader not detected!")
+                st.error("NinjaTrader not detected!")
                 st.warning("Make sure NinjaTrader is running and properly configured.")
     
     def render_tradovate_setup(self):
         """Tradovate API configuration"""
-        st.subheader("📈 Tradovate API Configuration")
+        st.subheader("Tradovate API Configuration")
         
         # Environment selection
         st.session_state.connection_config["tradovate_environment"] = st.selectbox(
@@ -830,7 +1481,7 @@ class HarrisonOriginalDashboard:
             )
         
         # Account IDs (for multiple accounts)
-        st.markdown("### 💰 Account Configuration")
+        st.markdown("### Account Configuration")
         
         # Simple text input for account IDs
         account_ids_text = st.text_area(
@@ -846,17 +1497,17 @@ class HarrisonOriginalDashboard:
         
         # Test Tradovate connection
         st.markdown("---")
-        if st.button("🔍 Test Tradovate Connection", use_container_width=True):
+        if st.button("Test Tradovate Connection", use_container_width=True):
             # Check if credentials are provided
             username = st.session_state.connection_config["tradovate_username"]
             password = st.session_state.connection_config["tradovate_password"]
             
             if not username or not password:
-                st.warning("⚠️ Please enter username and password to test connection")
+                st.warning("Please enter username and password to test connection")
                 return
             
             if self.test_tradovate_connection():
-                st.success("✅ Tradovate connection successful!")
+                st.success("Tradovate connection successful!")
                 environment = st.session_state.connection_config["tradovate_environment"]
                 st.info(f"Connected to {environment.upper()} environment")
                 
@@ -865,7 +1516,7 @@ class HarrisonOriginalDashboard:
                 if account_ids:
                     st.info(f"Configured accounts: {', '.join(account_ids)}")
             else:
-                st.error("❌ Tradovate connection failed!")
+                st.error("Tradovate connection failed!")
                 st.warning("Check your credentials and environment settings.")
         
         # Help section
@@ -888,7 +1539,7 @@ class HarrisonOriginalDashboard:
     
     def render_connection_testing(self):
         """Comprehensive connection testing interface"""
-        st.subheader("✅ Connection Testing & Validation")
+        st.subheader("Connection Testing & Validation")
         
         # Overall connection status
         ninja_connected = self.check_ninjatrader_connection()
@@ -898,21 +1549,20 @@ class HarrisonOriginalDashboard:
         status_col1, status_col2, status_col3 = st.columns(3)
         
         with status_col1:
-            ninja_icon = "✅" if ninja_connected else "❌"
-            st.metric("🥷 NinjaTrader", f"{ninja_icon} {'Connected' if ninja_connected else 'Disconnected'}")
+            connection_status = "CONNECTED" if ninja_connected else "DISCONNECTED"
+            st.metric("NinjaTrader", connection_status)
         
         with status_col2:
-            tradovate_icon = "✅" if tradovate_connected else "❌"
-            st.metric("📈 Tradovate", f"{tradovate_icon} {'Connected' if tradovate_connected else 'Disconnected'}")
+            connection_status = "CONNECTED" if tradovate_connected else "DISCONNECTED"
+            st.metric("Tradovate", connection_status)
         
         with status_col3:
-            overall_status = "Ready" if ninja_connected and tradovate_connected else "Issues"
-            overall_icon = "✅" if ninja_connected and tradovate_connected else "⚠️"
-            st.metric("🎯 Overall", f"{overall_icon} {overall_status}")
+            overall_status = "READY" if ninja_connected and tradovate_connected else "ISSUES"
+            st.metric("Overall Status", overall_status)
         
         # Detailed testing
         st.markdown("---")
-        st.subheader("🔍 Detailed Connection Tests")
+        st.subheader("Detailed Connection Tests")
         
         test_col1, test_col2 = st.columns(2)
         
@@ -978,7 +1628,7 @@ class HarrisonOriginalDashboard:
             st.write(f"- Accounts: {len(accounts)} configured")
         
         # Troubleshooting
-        with st.expander("🔧 Troubleshooting Guide"):
+        with st.expander("Troubleshooting Guide"):
             st.markdown("""
             **Common Issues & Solutions:**
             
@@ -1004,24 +1654,24 @@ class HarrisonOriginalDashboard:
     
     
     def render_control_panel(self):
-        """Render Harrison's main control panel with enhanced features"""
-        st.subheader("🎛️ Master Control Panel")
+        """Render professional main control panel"""
+        st.markdown('<div class="section-header">Master Control Panel</div>', unsafe_allow_html=True)
         
         control_col1, control_col2, control_col3, control_col4 = st.columns(4)
         
         with control_col1:
-            if st.button("🚀 START SYSTEM", use_container_width=True, type="primary"):
+            if st.button("START SYSTEM", use_container_width=True, type="primary"):
                 if st.session_state.system_mode == "DEMO":
                     st.session_state.system_running = True
                     st.session_state.emergency_stop = False
-                    st.success("✅ System started in DEMO mode")
+                    st.success("System started in DEMO mode")
                     st.rerun()
                 else:
                     # Check if connections are configured in TEST/LIVE mode
                     connections_configured = st.session_state.connection_config.get("connections_configured", False)
                     
                     if not connections_configured:
-                        st.error("❌ Please configure connections first! Click 'Configure Connections' in sidebar.")
+                        st.error("Please configure connections first! Click 'Configure Connections' in sidebar.")
                         return
                     
                     # Check actual connections in TEST/LIVE mode
@@ -1031,7 +1681,7 @@ class HarrisonOriginalDashboard:
                     if ninja_ok and tradovate_ok:
                         st.session_state.system_running = True
                         st.session_state.emergency_stop = False
-                        st.success(f"✅ System started in {st.session_state.system_mode} mode")
+                        st.success(f"System started in {st.session_state.system_mode} mode")
                         st.rerun()
                     else:
                         connection_issues = []
@@ -1039,17 +1689,17 @@ class HarrisonOriginalDashboard:
                             connection_issues.append("NinjaTrader")
                         if not tradovate_ok:
                             connection_issues.append("Tradovate")
-                        st.error(f"❌ Connection check failed: {', '.join(connection_issues)}")
-                        st.info("💡 Use 'Configure Connections' to fix these issues.")
+                        st.error(f"Connection check failed: {', '.join(connection_issues)}")
+                        st.info("Use 'Configure Connections' to fix these issues.")
         
         with control_col2:
-            if st.button("⏸️ PAUSE SYSTEM", use_container_width=True):
+            if st.button("PAUSE SYSTEM", use_container_width=True):
                 st.session_state.system_running = False
-                st.warning("⏸️ System paused")
+                st.warning("System paused")
                 st.rerun()
         
         with control_col3:
-            if st.button("🚨 EMERGENCY STOP", use_container_width=True, type="secondary"):
+            if st.button("EMERGENCY STOP", use_container_width=True, type="secondary"):
                 st.session_state.emergency_stop = True
                 st.session_state.system_running = False
                 # Emergency stop all charts
@@ -1057,11 +1707,11 @@ class HarrisonOriginalDashboard:
                     chart.is_active = False
                     chart.signal_color = "red"
                     chart.position_size = 0.0
-                st.error("🚨 EMERGENCY STOP ACTIVATED!")
+                st.error("EMERGENCY STOP ACTIVATED!")
                 st.rerun()
         
         with control_col4:
-            if st.button("🔄 RESET SYSTEM", use_container_width=True):
+            if st.button("RESET SYSTEM", use_container_width=True):
                 st.session_state.emergency_stop = False
                 st.session_state.system_running = False
                 # Reset all charts to safe state
@@ -1069,46 +1719,46 @@ class HarrisonOriginalDashboard:
                     chart.is_active = True
                     chart.signal_color = "yellow"
                     chart.risk_level = "SAFE"
-                st.info("🔄 System reset to safe state")
+                st.info("System reset to safe state")
                 st.rerun()
         
         # Mode selector (Demo/Test/Live progression)
         st.markdown("---")
-        st.subheader("🔧 System Mode")
+        st.subheader("System Mode")
         
         mode_col1, mode_col2, mode_col3 = st.columns(3)
         
         with mode_col1:
-            if st.button("🔷 DEMO MODE", use_container_width=True):
+            if st.button("DEMO MODE", use_container_width=True):
                 st.session_state.system_mode = "DEMO"
-                st.info("🔷 Demo mode - Simulated data only")
+                st.info("Demo mode - Simulated data only")
                 st.rerun()
         
         with mode_col2:
-            if st.button("🔶 TEST MODE", use_container_width=True):
+            if st.button("TEST MODE", use_container_width=True):
                 # Check if connections are configured
                 connections_configured = st.session_state.connection_config.get("connections_configured", False)
                 
                 if not connections_configured:
-                    st.error("❌ Please configure connections first!")
-                    st.info("💡 Click 'Configure Connections' in the sidebar.")
+                    st.error("Please configure connections first!")
+                    st.info("Click 'Configure Connections' in the sidebar.")
                     return
                 
                 if self.check_ninjatrader_connection():
                     st.session_state.system_mode = "TEST"
-                    st.warning("🔶 Test mode - Real connections, paper trading")
+                    st.warning("Test mode - Real connections, paper trading")
                     st.rerun()
                 else:
-                    st.error("❌ NinjaTrader not detected! Start NinjaTrader first.")
+                    st.error("NinjaTrader not detected! Start NinjaTrader first.")
         
         with mode_col3:
-            if st.button("🔴 LIVE MODE", use_container_width=True):
+            if st.button("LIVE MODE", use_container_width=True):
                 # Check if connections are configured
                 connections_configured = st.session_state.connection_config.get("connections_configured", False)
                 
                 if not connections_configured:
-                    st.error("❌ Please configure connections first!")
-                    st.info("💡 Click 'Configure Connections' in the sidebar.")
+                    st.error("Please configure connections first!")
+                    st.info("Click 'Configure Connections' in the sidebar.")
                     return
                 
                 # Require both connections for live mode
@@ -1119,11 +1769,11 @@ class HarrisonOriginalDashboard:
                     # Extra confirmation for live mode
                     if st.session_state.get('confirm_live_mode', False):
                         st.session_state.system_mode = "LIVE"
-                        st.error("🔴 LIVE MODE - REAL MONEY TRADING!")
+                        st.error("LIVE MODE - REAL MONEY TRADING!")
                         st.session_state.confirm_live_mode = False
                         st.rerun()
                     else:
-                        st.warning("⚠️ Click again to confirm LIVE MODE (real money trading)")
+                        st.warning("Click again to confirm LIVE MODE (real money trading)")
                         st.session_state.confirm_live_mode = True
                 else:
                     connection_issues = []
@@ -1131,29 +1781,51 @@ class HarrisonOriginalDashboard:
                         connection_issues.append("NinjaTrader")
                     if not tradovate_ok:
                         connection_issues.append("Tradovate")
-                    st.error(f"❌ Connection check failed: {', '.join(connection_issues)}")
-                    st.info("💡 Configure connections first before entering live mode.")
+                    st.error(f"Connection check failed: {', '.join(connection_issues)}")
+                    st.info("Configure connections first before entering live mode.")
         
         # Current mode display
         st.markdown(f"**Current Mode:** {st.session_state.system_mode}")
     
     def render_sidebar_settings(self):
-        """Render Harrison's clean sidebar settings"""
-        st.sidebar.header("⚙️ Trading Settings")
+        """Render professional sidebar settings"""
+        st.sidebar.markdown(
+            """
+            <div style="
+                padding: 1rem;
+                background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+                border-radius: 8px;
+                color: white;
+                text-align: center;
+                margin-bottom: 1.5rem;
+            ">
+                <h3 style="margin: 0; font-size: 1.25rem; font-weight: 700;">TRAINING WHEELS</h3>
+                <p style="margin: 0.25rem 0 0 0; font-size: 0.8rem; opacity: 0.9;">FOR PROP FIRM TRADERS</p>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
         
         # Connection Configuration Section
-        st.sidebar.subheader("🔗 Connection Setup")
+        st.sidebar.subheader("Connection Setup")
         
         # Connection setup button - prominent placement
-        if st.sidebar.button("🔧 Configure Connections", use_container_width=True, type="primary"):
+        if st.sidebar.button("Configure Connections", use_container_width=True, type="primary"):
             st.session_state.show_connection_setup = True
         
         # Quick connection status display
-        ninja_status = "✅ Connected" if self.check_ninjatrader_connection() else "❌ Disconnected"
-        tradovate_status = "✅ Connected" if self.test_tradovate_connection() else "❌ Disconnected"
+        ninja_status = "Connected" if self.check_ninjatrader_connection() else "Disconnected"
+        tradovate_status = "Connected" if self.test_tradovate_connection() else "Disconnected"
         
-        st.sidebar.markdown(f"**NinjaTrader:** {ninja_status}")
-        st.sidebar.markdown(f"**Tradovate:** {tradovate_status}")
+        if ninja_status == "Connected":
+            st.sidebar.success(f"NinjaTrader: {ninja_status}")
+        else:
+            st.sidebar.error(f"NinjaTrader: {ninja_status}")
+            
+        if tradovate_status == "Connected":
+            st.sidebar.success(f"Tradovate: {tradovate_status}")
+        else:
+            st.sidebar.error(f"Tradovate: {tradovate_status}")
         
         # Show connection setup modal if requested
         if st.session_state.get('show_connection_setup', False):
@@ -1162,7 +1834,7 @@ class HarrisonOriginalDashboard:
         st.sidebar.markdown("---")
         
         # User profile
-        st.sidebar.subheader("👤 Trader Profile")
+        st.sidebar.subheader("Trader Profile")
         st.session_state.user_config["trader_name"] = st.sidebar.text_input(
             "Trader Name", 
             value=st.session_state.user_config["trader_name"],
@@ -1170,7 +1842,7 @@ class HarrisonOriginalDashboard:
         )
         
         # Platform settings  
-        st.sidebar.subheader("🔧 Platform Settings")
+        st.sidebar.subheader("Platform Settings")
         st.session_state.user_config["platform"] = st.sidebar.selectbox(
             "Trading Platform",
             ["NinjaTrader 8", "NinjaTrader 7", "TradingView", "Other"],
@@ -1186,7 +1858,7 @@ class HarrisonOriginalDashboard:
         )
         
         # Risk management
-        st.sidebar.subheader("⚖️ Risk Management")
+        st.sidebar.subheader("Risk Management")
         st.session_state.user_config["max_daily_loss"] = st.sidebar.number_input(
             "Max Daily Loss ($)",
             min_value=100.0,
@@ -1206,7 +1878,7 @@ class HarrisonOriginalDashboard:
         )
         
         # Chart layout
-        st.sidebar.subheader("📊 Chart Settings")
+        st.sidebar.subheader("Chart Settings")
         st.session_state.user_config["chart_layout"] = st.sidebar.selectbox(
             "Chart Layout",
             ["2x3", "3x2", "1x6", "6x1"],
@@ -1241,7 +1913,7 @@ class HarrisonOriginalDashboard:
         if OCR_AVAILABLE and self.ocr_manager:
             st.sidebar.markdown("---")
             st.sidebar.subheader("👁️ OCR Settings")
-            if st.sidebar.button("🔧 Configure OCR"):
+            if st.sidebar.button("Configure OCR"):
                 st.sidebar.info("OCR configuration panel would open here")
     
     def simulate_data_updates(self):
@@ -1252,7 +1924,7 @@ class HarrisonOriginalDashboard:
         # Update each chart with simulated data
         total_daily_pnl = 0
         
-        for chart in st.session_state.charts.values():
+        for chart_id, chart in st.session_state.charts.items():
             if chart.is_active:
                 # Simulate power score changes
                 if st.session_state.system_mode == "DEMO":
@@ -1296,6 +1968,27 @@ class HarrisonOriginalDashboard:
                 
                 # Update timestamps
                 chart.last_update = datetime.now()
+                
+                # ERM Calculation (if enabled and Enigma signal active)
+                if (st.session_state.erm_settings.get("enabled", False) and 
+                    chart.current_enigma_signal and 
+                    chart.current_enigma_signal.is_active):
+                    
+                    # Simulate current market price (based on chart metrics)
+                    current_price = chart.entry_price + (chart.daily_pnl / chart.position_size if chart.position_size != 0 else 0)
+                    
+                    # Calculate ERM
+                    erm_result = self.calculate_erm(chart_id, current_price)
+                    
+                    # Update power score based on ERM
+                    if erm_result:
+                        if erm_result.is_reversal_triggered:
+                            chart.power_score = max(0, chart.power_score - 20)  # Reduce confidence on reversal
+                        else:
+                            # Increase confidence if price moving in Enigma direction
+                            if ((chart.current_enigma_signal.signal_type == "LONG" and erm_result.price_distance > 0) or
+                                (chart.current_enigma_signal.signal_type == "SHORT" and erm_result.price_distance < 0)):
+                                chart.power_score = min(100, chart.power_score + 5)
                 
                 total_daily_pnl += chart.daily_pnl
         
@@ -1377,6 +2070,114 @@ class HarrisonOriginalDashboard:
         
         st.plotly_chart(fig, use_container_width=True)
     
+    def render_erm_alerts_panel(self):
+        """Render ERM alerts and monitoring panel"""
+        if not st.session_state.erm_settings.get("enabled", False):
+            return
+        
+        st.subheader("🧠 ERM (Enigma Reversal Momentum) Monitor")
+        
+        # ERM Status Overview
+        erm_col1, erm_col2, erm_col3, erm_col4 = st.columns(4)
+        
+        with erm_col1:
+            active_signals = len([s for s in st.session_state.active_enigma_signals.values() if s.is_active])
+            st.metric("🎯 Active Enigma Signals", active_signals)
+        
+        with erm_col2:
+            recent_alerts = len([a for a in st.session_state.erm_alerts if (datetime.now() - a['timestamp']).seconds < 300])
+            st.metric("⚡ Recent ERM Alerts", recent_alerts)
+        
+        with erm_col3:
+            today_reversals = len([a for a in st.session_state.erm_alerts if a['timestamp'].date() == datetime.now().date()])
+            st.metric("🔄 Today's Reversals", today_reversals)
+        
+        with erm_col4:
+            max_reversals = st.session_state.erm_settings.get("max_reversals_per_day", 3)
+            remaining = max(0, max_reversals - today_reversals)
+            st.metric("📊 Reversals Remaining", f"{remaining}/{max_reversals}")
+        
+        # Recent ERM Alerts
+        if st.session_state.erm_alerts:
+            st.markdown("### 🚨 Recent ERM Alerts")
+            
+            # Show last 5 alerts
+            recent_alerts = st.session_state.erm_alerts[-5:]
+            
+            for alert in reversed(recent_alerts):
+                alert_time = alert['timestamp'].strftime('%H:%M:%S')
+                
+                # Color code based on reversal direction
+                if alert['reversal_direction'] == 'LONG':
+                    alert_color = "🟢"
+                elif alert['reversal_direction'] == 'SHORT':
+                    alert_color = "🔴"
+                else:
+                    alert_color = "🟡"
+                
+                with st.expander(f"{alert_color} {alert_time} - {alert['chart_name']} ERM Reversal", expanded=False):
+                    alert_col1, alert_col2 = st.columns(2)
+                    
+                    with alert_col1:
+                        st.write(f"**Original Signal:** {alert['original_signal']}")
+                        st.write(f"**Reversal Direction:** {alert['reversal_direction']}")
+                        st.write(f"**ERM Value:** {alert['erm_value']:.3f}")
+                        st.write(f"**Threshold:** {alert['threshold']:.3f}")
+                    
+                    with alert_col2:
+                        st.write(f"**Momentum:** {alert['momentum']:.3f} pts/min")
+                        st.write(f"**Price Distance:** {alert['price_distance']:.2f}")
+                        st.write(f"**Chart:** {alert['chart_name']}")
+                        
+                        # Action buttons
+                        if st.button(f"📈 Execute {alert['reversal_direction']}", key=f"execute_{alert['timestamp']}"):
+                            self.execute_reversal_trade(alert['chart_id'], alert['reversal_direction'])
+                            st.success(f"✅ {alert['reversal_direction']} trade executed!")
+                            st.rerun()
+        
+        # Manual Enigma Signal Entry
+        st.markdown("### 🎯 Manual Enigma Signal Entry")
+        
+        manual_col1, manual_col2, manual_col3 = st.columns(3)
+        
+        with manual_col1:
+            chart_options = [f"Chart {i+1}: {chart.account_name}" for i, chart in enumerate(st.session_state.charts.values())]
+            selected_chart_idx = st.selectbox("Select Chart", range(len(chart_options)), format_func=lambda x: chart_options[x])
+            selected_chart_id = selected_chart_idx + 1
+        
+        with manual_col2:
+            signal_direction = st.selectbox("Signal Direction", ["LONG", "SHORT"])
+            entry_price = st.number_input("Entry Price", value=4000.0, step=0.25)
+        
+        with manual_col3:
+            signal_confidence = st.slider("Signal Confidence", 0.0, 1.0, 0.8, 0.1)
+            
+            if st.button("🚀 Add Enigma Signal", use_container_width=True):
+                # Create new Enigma signal
+                enigma_signal = EnigmaSignal(
+                    signal_type=signal_direction,
+                    entry_price=entry_price,
+                    signal_time=datetime.now(),
+                    is_active=True,
+                    confidence=signal_confidence
+                )
+                
+                # Add to chart
+                chart = st.session_state.charts[selected_chart_id]
+                chart.current_enigma_signal = enigma_signal
+                st.session_state.active_enigma_signals[selected_chart_id] = enigma_signal
+                
+                # Initialize price history
+                chart.price_history = [entry_price]
+                chart.time_history = [datetime.now()]
+                
+                # Update chart display
+                chart.last_signal = f"Enigma {signal_direction}"
+                chart.signal_color = "green" if signal_direction == "LONG" else "red"
+                
+                st.success(f"✅ Enigma {signal_direction} signal added to {chart.account_name}")
+                st.rerun()
+    
     def run(self):
         """Main dashboard run method"""
         # Page header
@@ -1399,6 +2200,11 @@ class HarrisonOriginalDashboard:
         st.markdown("---")
         
         self.render_system_status()
+        
+        # ERM Alerts Panel (if enabled)
+        if st.session_state.erm_settings.get("enabled", False):
+            st.markdown("---")
+            self.render_erm_alerts_panel()
         
         # OCR integration tab
         if OCR_AVAILABLE and self.ocr_manager:
@@ -1445,15 +2251,19 @@ class HarrisonOriginalDashboard:
         
         # Footer
         st.markdown("---")
-        # Safe access to config with fallbacks
-        platform = st.session_state.user_config.get('platform', 'NinjaTrader 8')
-        broker = st.session_state.user_config.get('broker', 'Tradovate')
-        account_type = f"{platform} + {broker}"
-        st.markdown(f"🎯 **Harrison's Original 6-Chart Control Panel** | {account_type} Multi-Account Dashboard")
+        # Display selected prop firm info
+        selected_firm = st.session_state.get('selected_prop_firm', 'FTMO')
+        trader_name = st.session_state.user_config.get('trader_name', 'Trader')
+        st.markdown(f"🎯 **Training Wheels for Prop Firm Traders** | {trader_name} | {selected_firm} Challenge Dashboard")
+        
+        # Show ERM status in footer
+        if st.session_state.erm_settings.get("enabled", False):
+            active_signals = len([s for s in st.session_state.active_enigma_signals.values() if s.is_active])
+            st.markdown(f"🧠 **ERM System Active** - Monitoring {active_signals} Enigma Signals | First Principal Enhancement System")
 
 def main():
     """Main application entry point"""
-    dashboard = HarrisonOriginalDashboard()
+    dashboard = TrainingWheelsDashboard()
     dashboard.run()
 
 if __name__ == "__main__":
