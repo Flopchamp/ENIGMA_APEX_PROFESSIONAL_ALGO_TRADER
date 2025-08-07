@@ -1,0 +1,18 @@
+{
+  "trader_name": "Trader",
+  "account_size": 25000.0,
+  "max_charts": 6,
+  "chart_names": [
+    "ES-Primary",
+    "ES-Secondary",
+    "NQ-Primary",
+    "NQ-Secondary",
+    "YM-Primary",
+    "RTY-Primary"
+  ],
+  "safety_ratio": 25.0,
+  "daily_loss_limit": 2000.0,
+  "max_position_per_chart": 5.0,
+  "priority_indicator": "margin",
+  "broker": "ninjatrader"
+}

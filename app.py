@@ -20,14 +20,35 @@ if system_dir not in sys.path:
 
 # Import dashboard components (with fallback)
 try:
+    from harrison_original_complete import HarrisonOriginalDashboard
+    from streamlit_trading_dashboard import TradingDashboard as HarrisonStreamlitDashboard
     from system.streamlit_6_chart_dashboard import StreamlitTradingDashboard
     from system.streamlit_system_integration import StreamlitSystemIntegration
+    from system.harrison_enhanced_dashboard import HarrisonEnhancedDashboard
+    from system.ninjatrader_tradovate_dashboard import NinjaTraderTradovateDashboard
 except ImportError:
     try:
         from streamlit_6_chart_dashboard import StreamlitTradingDashboard
         from streamlit_system_integration import StreamlitSystemIntegration
+        from harrison_enhanced_dashboard import HarrisonEnhancedDashboard
+        from ninjatrader_tradovate_dashboard import NinjaTraderTradovateDashboard
+        # Fallback for Harrison's dashboards
+        HarrisonOriginalDashboard = None
+        HarrisonStreamlitDashboard = None
     except ImportError:
         # Create fallback classes if imports fail
+        class HarrisonOriginalDashboard:
+            def run(self):
+                st.error("Harrison's original dashboard module not found.")
+                st.markdown("## 🎯 Harrison's Original Dashboard")
+                st.info("This is a fallback. Please ensure harrison_original_dashboard.py exists.")
+        
+        class HarrisonStreamlitDashboard:
+            def run(self):
+                st.error("Harrison's streamlit dashboard module not found.")
+                st.markdown("## 🎯 Harrison's Streamlit Dashboard")
+                st.info("This is a fallback. Please ensure streamlit_trading_dashboard.py exists.")
+        
         class StreamlitTradingDashboard:
             def run(self):
                 st.error("Dashboard module not found. Creating basic dashboard...")
@@ -39,6 +60,18 @@ except ImportError:
                 st.error("Integration module not found. Creating basic integration...")
                 st.markdown("## 🔗 System Integration")
                 st.info("This is a fallback integration panel. Please ensure all system files are properly installed.")
+        
+        class HarrisonEnhancedDashboard:
+            def run(self):
+                st.error("Harrison's enhanced dashboard module not found.")
+                st.markdown("## 🎯 Harrison's Enhanced Dashboard")
+                st.info("This is a fallback. Please ensure all system files are properly installed.")
+        
+        class NinjaTraderTradovateDashboard:
+            def run(self):
+                st.error("NinjaTrader dashboard module not found.")
+                st.markdown("## 🥷 NinjaTrader + Tradovate Dashboard")
+                st.info("This is a fallback. Please ensure all system files are properly installed.")
 
 class UniversalTradingApp:
     """
@@ -261,25 +294,29 @@ class UniversalTradingApp:
         """Render navigation menu"""
         st.markdown('<div class="nav-pills">', unsafe_allow_html=True)
         
-        col1, col2, col3, col4, col5 = st.columns(5)
+        col1, col2, col3, col4, col5, col6 = st.columns(6)
         
         with col1:
-            if st.button("📊 Dashboard", use_container_width=True):
+            if st.button("📊 Universal", use_container_width=True):
                 st.session_state.current_page = "Dashboard"
         
         with col2:
-            if st.button("🔗 Integration", use_container_width=True):
-                st.session_state.current_page = "Integration"
+            if st.button("🎯 Harrison Original", use_container_width=True):
+                st.session_state.current_page = "Harrison"
         
         with col3:
+            if st.button("🥷 NinjaTrader Pro", use_container_width=True):
+                st.session_state.current_page = "NinjaTrader"
+        
+        with col4:
             if st.button("⚙️ Settings", use_container_width=True):
                 st.session_state.current_page = "Settings"
         
-        with col4:
+        with col5:
             if st.button("📈 Analytics", use_container_width=True):
                 st.session_state.current_page = "Analytics"
         
-        with col5:
+        with col6:
             if st.button("❓ Help", use_container_width=True):
                 st.session_state.current_page = "Help"
         
@@ -355,6 +392,36 @@ class UniversalTradingApp:
         """Render the main dashboard page"""
         dashboard = StreamlitTradingDashboard()
         dashboard.run()
+    
+    def render_harrison_page(self):
+        """Render Harrison's original dashboard page"""
+        try:
+            if HarrisonOriginalDashboard:
+                harrison_dashboard = HarrisonOriginalDashboard()
+                harrison_dashboard.run()
+            elif HarrisonStreamlitDashboard:
+                # Fallback to the streamlit_trading_dashboard version
+                harrison_dashboard = HarrisonStreamlitDashboard()
+                harrison_dashboard.run()
+            else:
+                # Final fallback to enhanced version
+                harrison_dashboard = HarrisonEnhancedDashboard()
+                harrison_dashboard.run()
+        except Exception as e:
+            st.error(f"Error loading Harrison's dashboard: {e}")
+            st.info("Trying fallback options...")
+            try:
+                harrison_dashboard = HarrisonEnhancedDashboard()
+                harrison_dashboard.run()
+            except Exception as e2:
+                st.error(f"All Harrison dashboard options failed: {e2}")
+                st.markdown("## 🎯 Harrison's Dashboard")
+                st.info("Please check that the dashboard files are properly installed.")
+    
+    def render_ninjatrader_page(self):
+        """Render the NinjaTrader + Tradovate dashboard page"""
+        ninjatrader_dashboard = NinjaTraderTradovateDashboard()
+        ninjatrader_dashboard.run()
     
     def render_integration_page(self):
         """Render the system integration page"""
@@ -679,6 +746,10 @@ class UniversalTradingApp:
         # Render current page content (sidebar will be handled by individual pages)
         if st.session_state.current_page == "Dashboard":
             self.render_dashboard_page()
+        elif st.session_state.current_page == "Harrison":
+            self.render_harrison_page()
+        elif st.session_state.current_page == "NinjaTrader":
+            self.render_ninjatrader_page()
         elif st.session_state.current_page == "Integration":
             self.render_integration_page()
         elif st.session_state.current_page == "Settings":
