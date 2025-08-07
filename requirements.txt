@@ -1,23 +1,27 @@
-# 🛡️ Apex Compliance Guardian - Complete Requirements
-# For both local development and Streamlit Cloud deployment
-# Python 3.11+ required
+# 🎯 Universal 6-Chart Trading System Requirements
+# Streamlit-based application for any trader's setup
+# Python 3.8+ required
 
-# Streamlit web interface dependencies
+# Core Streamlit framework
 streamlit>=1.28.0
 plotly>=5.15.0
 pandas>=2.0.0
 numpy>=1.24.0
 
-# OCR and Image Processing
+# OCR and Image Processing (for AlgoBox integration)
 easyocr>=1.7.0
 pytesseract>=0.3.10
 opencv-python>=4.8.0
 mss>=9.0.1
 Pillow>=10.0.0
 
-# Web Server and API
-fastapi>=0.104.0
-uvicorn[standard]>=0.24.0
+# Data handling and visualization
+matplotlib>=3.7.0
+seaborn>=0.12.0
+
+# Web connectivity and APIs
+requests>=2.31.0
+websocket-client>=1.6.0
 websockets>=11.0.0
 aiofiles>=23.0.0
 
