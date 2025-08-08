@@ -60,6 +60,35 @@ try:
 except ImportError:
     WINDOWS_API_AVAILABLE = False
 
+# Desktop notifications
+try:
+    import plyer
+    NOTIFICATIONS_AVAILABLE = True
+    NOTIFICATIONS_TYPE = "plyer"
+except ImportError:
+    try:
+        # Fallback for Windows
+        import win10toast
+        NOTIFICATIONS_AVAILABLE = True
+        NOTIFICATIONS_TYPE = "win10toast"
+    except ImportError:
+        NOTIFICATIONS_AVAILABLE = False
+        NOTIFICATIONS_TYPE = None
+
+# Audio alerts
+try:
+    import winsound
+    AUDIO_AVAILABLE = True
+    AUDIO_TYPE = "winsound"
+except ImportError:
+    try:
+        import pygame
+        AUDIO_AVAILABLE = True
+        AUDIO_TYPE = "pygame"
+    except ImportError:
+        AUDIO_AVAILABLE = False
+        AUDIO_TYPE = None
+
 @dataclass
 class EnigmaSignal:
     signal_type: str
@@ -163,6 +192,286 @@ class SimpleConfig:
     trader_name: str = "Professional Trader"
     prop_firm: str = "FTMO"
     demo_mode: bool = True
+
+class NotificationManager:
+    """
+    Advanced notification manager for prop firm traders
+    Handles desktop notifications, audio alerts, and visual alerts
+    """
+    
+    def __init__(self):
+        self.notification_history = []
+        self.audio_enabled = True
+        self.desktop_notifications_enabled = True
+        self.critical_alerts_only = False
+        self.notification_settings = {
+            "erm_reversal": {"enabled": True, "sound": True, "priority": "high"},
+            "margin_warning": {"enabled": True, "sound": True, "priority": "critical"},
+            "connection_lost": {"enabled": True, "sound": True, "priority": "high"},
+            "emergency_stop": {"enabled": True, "sound": True, "priority": "critical"},
+            "new_signal": {"enabled": True, "sound": False, "priority": "medium"},
+            "position_update": {"enabled": False, "sound": False, "priority": "low"},
+            "system_status": {"enabled": True, "sound": False, "priority": "medium"}
+        }
+    
+    def send_notification(self, 
+                         title: str, 
+                         message: str, 
+                         notification_type: str = "info",
+                         priority: str = "medium",
+                         play_sound: bool = None,
+                         chart_id: Optional[int] = None):
+        """Send a desktop notification with optional sound"""
+        
+        # Check if notifications are enabled for this type
+        if notification_type in self.notification_settings:
+            settings = self.notification_settings[notification_type]
+            if not settings["enabled"]:
+                return
+            
+            # Override sound setting if specified
+            if play_sound is None:
+                play_sound = settings["sound"] and self.audio_enabled
+            
+            # Override priority
+            if priority == "medium":
+                priority = settings["priority"]
+        
+        # Skip non-critical if critical alerts only mode
+        if self.critical_alerts_only and priority not in ["critical", "high"]:
+            return
+        
+        # Create notification record
+        notification_record = {
+            "timestamp": datetime.now(),
+            "title": title,
+            "message": message,
+            "type": notification_type,
+            "priority": priority,
+            "chart_id": chart_id,
+            "acknowledged": False
+        }
+        
+        # Add to history
+        self.notification_history.append(notification_record)
+        
+        # Keep only last 100 notifications
+        if len(self.notification_history) > 100:
+            self.notification_history = self.notification_history[-100:]
+        
+        # Send desktop notification
+        if self.desktop_notifications_enabled and NOTIFICATIONS_AVAILABLE:
+            self._send_desktop_notification(title, message, priority)
+        
+        # Play sound alert
+        if play_sound and AUDIO_AVAILABLE:
+            self._play_alert_sound(priority)
+        
+        # Log notification
+        logging.info(f"Notification sent: {title} - {message}")
+        
+        return notification_record
+    
+    def _send_desktop_notification(self, title: str, message: str, priority: str):
+        """Send desktop notification using available library"""
+        try:
+            # Choose icon based on priority
+            icon_map = {
+                "critical": "error",
+                "high": "warning", 
+                "medium": "info",
+                "low": "info"
+            }
+            
+            if NOTIFICATIONS_TYPE == "plyer":
+                plyer.notification.notify(
+                    title=f"🎯 Training Wheels - {title}",
+                    message=message,
+                    app_name="Training Wheels Pro",
+                    timeout=10 if priority == "critical" else 5
+                )
+            elif NOTIFICATIONS_TYPE == "win10toast":
+                toaster = win10toast.ToastNotifier()
+                toaster.show_toast(
+                    title=f"🎯 Training Wheels - {title}",
+                    msg=message,
+                    duration=10 if priority == "critical" else 5,
+                    threaded=True
+                )
+        except Exception as e:
+            logging.error(f"Failed to send desktop notification: {e}")
+    
+    def _play_alert_sound(self, priority: str):
+        """Play audio alert based on priority"""
+        try:
+            if AUDIO_TYPE == "winsound":
+                if priority == "critical":
+                    # Critical alert - long beep sequence
+                    for _ in range(3):
+                        winsound.Beep(1000, 200)  # 1000Hz for 200ms
+                        time.sleep(0.1)
+                elif priority == "high":
+                    # High priority - double beep
+                    winsound.Beep(800, 150)
+                    time.sleep(0.1)
+                    winsound.Beep(800, 150)
+                else:
+                    # Medium/low priority - single beep
+                    winsound.Beep(600, 100)
+            
+            elif AUDIO_TYPE == "pygame":
+                # Pygame sound implementation (fallback)
+                pass
+                
+        except Exception as e:
+            logging.error(f"Failed to play alert sound: {e}")
+    
+    def send_erm_reversal_alert(self, chart_id: int, direction: str, erm_value: float, chart_name: str):
+        """Send ERM reversal notification"""
+        title = f"ERM REVERSAL DETECTED - Chart {chart_id}"
+        message = f"{chart_name}: {direction} reversal signal detected! ERM Value: {erm_value:.2f}"
+        
+        return self.send_notification(
+            title=title,
+            message=message,
+            notification_type="erm_reversal",
+            priority="high",
+            chart_id=chart_id
+        )
+    
+    def send_margin_warning(self, margin_percentage: float, total_equity: float):
+        """Send margin warning notification"""
+        if margin_percentage < 20:
+            priority = "critical"
+            title = "CRITICAL MARGIN WARNING"
+        elif margin_percentage < 50:
+            priority = "high"
+            title = "MARGIN WARNING"
+        else:
+            return  # No warning needed
+        
+        message = f"Margin at {margin_percentage:.1f}% (${total_equity * margin_percentage / 100:,.0f} remaining)"
+        
+        return self.send_notification(
+            title=title,
+            message=message,
+            notification_type="margin_warning",
+            priority=priority
+        )
+    
+    def send_connection_lost_alert(self, platform: str):
+        """Send connection lost notification"""
+        title = f"{platform.upper()} CONNECTION LOST"
+        message = f"Lost connection to {platform}. Trading operations may be affected."
+        
+        return self.send_notification(
+            title=title,
+            message=message,
+            notification_type="connection_lost",
+            priority="high"
+        )
+    
+    def send_emergency_stop_alert(self):
+        """Send emergency stop notification"""
+        title = "🚨 EMERGENCY STOP ACTIVATED"
+        message = "All trading has been halted. Manual intervention required."
+        
+        return self.send_notification(
+            title=title,
+            message=message,
+            notification_type="emergency_stop",
+            priority="critical"
+        )
+    
+    def send_new_signal_alert(self, chart_id: int, signal_type: str, chart_name: str, confidence: float):
+        """Send new signal notification"""
+        title = f"New {signal_type} Signal - Chart {chart_id}"
+        message = f"{chart_name}: {signal_type} signal detected (Confidence: {confidence:.1%})"
+        
+        return self.send_notification(
+            title=title,
+            message=message,
+            notification_type="new_signal",
+            priority="medium",
+            chart_id=chart_id
+        )
+    
+    def send_position_update_alert(self, chart_id: int, chart_name: str, position_size: float, pnl: float):
+        """Send position update notification"""
+        title = f"Position Update - Chart {chart_id}"
+        message = f"{chart_name}: Size {position_size:.2f}, P&L ${pnl:,.0f}"
+        
+        return self.send_notification(
+            title=title,
+            message=message,
+            notification_type="position_update",
+            priority="low",
+            chart_id=chart_id
+        )
+    
+    def send_system_status_alert(self, status_message: str):
+        """Send system status notification"""
+        title = "System Status Update"
+        
+        return self.send_notification(
+            title=title,
+            message=status_message,
+            notification_type="system_status",
+            priority="medium"
+        )
+    
+    def get_unacknowledged_notifications(self) -> List[Dict]:
+        """Get all unacknowledged notifications"""
+        return [n for n in self.notification_history if not n["acknowledged"]]
+    
+    def acknowledge_notification(self, notification_index: int):
+        """Mark notification as acknowledged"""
+        if 0 <= notification_index < len(self.notification_history):
+            self.notification_history[notification_index]["acknowledged"] = True
+    
+    def acknowledge_all_notifications(self):
+        """Mark all notifications as acknowledged"""
+        for notification in self.notification_history:
+            notification["acknowledged"] = False
+    
+    def get_notification_summary(self) -> Dict[str, int]:
+        """Get summary of notification counts by type"""
+        summary = {}
+        for notification in self.notification_history:
+            if not notification["acknowledged"]:
+                notification_type = notification["type"]
+                summary[notification_type] = summary.get(notification_type, 0) + 1
+        return summary
+    
+    def configure_notification_settings(self, notification_type: str, enabled: bool, sound: bool, priority: str):
+        """Configure notification settings for a specific type"""
+        if notification_type in self.notification_settings:
+            self.notification_settings[notification_type] = {
+                "enabled": enabled,
+                "sound": sound,
+                "priority": priority
+            }
+    
+    def enable_critical_alerts_only(self):
+        """Enable only critical and high priority alerts"""
+        self.critical_alerts_only = True
+    
+    def disable_critical_alerts_only(self):
+        """Enable all priority levels"""
+        self.critical_alerts_only = False
+    
+    def test_notification_system(self):
+        """Test the notification system with sample alerts"""
+        test_notifications = [
+            ("Test - Low Priority", "This is a low priority test notification", "low"),
+            ("Test - Medium Priority", "This is a medium priority test notification", "medium"),
+            ("Test - High Priority", "This is a high priority test notification", "high"),
+            ("Test - Critical Priority", "This is a critical priority test notification", "critical")
+        ]
+        
+        for title, message, priority in test_notifications:
+            self.send_notification(title, message, "system_status", priority)
+            time.sleep(1)  # Delay between notifications
 
 class KellyEngine:
     """
@@ -621,6 +930,7 @@ class TrainingWheelsDashboard:
         self.ocr_manager = OCRManager()
         self.ocr_screen_monitor = OCRScreenMonitor()
         self.kelly_engine = KellyEngine()
+        self.notification_manager = NotificationManager()
         
         # Then initialize session state and OCR regions
         self.initialize_session_state()
@@ -1092,6 +1402,18 @@ class TrainingWheelsDashboard:
         if erm_calc.reversal_direction == "NONE":
             return
         
+        # Get chart info for notification
+        chart = st.session_state.charts[chart_id]
+        chart_name = chart.account_name
+        
+        # Send desktop notification for ERM reversal
+        self.notification_manager.send_erm_reversal_alert(
+            chart_id=chart_id,
+            direction=erm_calc.reversal_direction,
+            erm_value=erm_calc.erm_value,
+            chart_name=chart_name
+        )
+        
         # Add to ERM alerts
         alert = {
             "chart_id": chart_id,
@@ -1110,7 +1432,6 @@ class TrainingWheelsDashboard:
             st.session_state.erm_alerts = st.session_state.erm_alerts[-50:]
         
         # Update chart signal
-        chart = st.session_state.charts[chart_id]
         chart.signal_color = "green" if erm_calc.reversal_direction == "LONG" else "red"
         chart.last_signal = f"ERM {erm_calc.reversal_direction}"
         
@@ -1177,6 +1498,13 @@ class TrainingWheelsDashboard:
         total_equity = st.session_state.system_status.total_equity
         margin_remaining = total_equity - total_margin_used
         margin_percentage = (margin_remaining / total_equity) * 100 if total_equity > 0 else 0
+        
+        # Send margin warning notifications if needed
+        if margin_percentage < 50 and not st.session_state.get('margin_warning_sent', False):
+            self.notification_manager.send_margin_warning(margin_percentage, total_equity)
+            st.session_state.margin_warning_sent = True
+        elif margin_percentage >= 50:
+            st.session_state.margin_warning_sent = False  # Reset warning flag
         
         # Professional margin display
         col1, col2, col3, col4 = st.columns(4)
@@ -1306,6 +1634,10 @@ class TrainingWheelsDashboard:
             if st.button("🚨 EMERGENCY STOP", type="primary", use_container_width=True):
                 st.session_state.emergency_stop = True
                 st.session_state.system_running = False
+                
+                # Send emergency stop notification
+                self.notification_manager.send_emergency_stop_alert()
+                
                 st.error("EMERGENCY STOP ACTIVATED!")
                 # Stop all charts
                 for chart in st.session_state.charts.values():
@@ -1371,15 +1703,19 @@ class TrainingWheelsDashboard:
                 if st.button("Test NT", use_container_width=True):
                     if self.ninja_connector.connect_via_socket():
                         st.success("NinjaTrader Connected!")
+                        self.notification_manager.send_system_status_alert("NinjaTrader connection successful")
                     else:
                         st.error("NT Connection Failed")
+                        self.notification_manager.send_connection_lost_alert("NinjaTrader")
             
             with col2:
                 if st.button("Test TV", use_container_width=True):
                     if self.tradovate_connector.authenticate("demo", "demo"):
                         st.success("Tradovate Connected!")
+                        self.notification_manager.send_system_status_alert("Tradovate connection successful")
                     else:
                         st.error("TV Connection Failed")
+                        self.notification_manager.send_connection_lost_alert("Tradovate")
             
             st.markdown("---")
             
@@ -1399,6 +1735,83 @@ class TrainingWheelsDashboard:
                 # Show OCR status
                 signals_detected = len(st.session_state.get('active_enigma_signals', {}))
                 st.metric("Active Signals", signals_detected)
+            
+            st.markdown("---")
+            
+            # Notification Panel
+            st.subheader("🔔 Notifications")
+            
+            # Get unacknowledged notifications
+            unack_notifications = self.notification_manager.get_unacknowledged_notifications()
+            notification_summary = self.notification_manager.get_notification_summary()
+            
+            if unack_notifications:
+                # Show notification count badges
+                total_unack = len(unack_notifications)
+                st.metric("Unread Alerts", total_unack)
+                
+                # Show summary by type
+                for notif_type, count in notification_summary.items():
+                    if count > 0:
+                        priority_color = "🔴" if notif_type in ["emergency_stop", "margin_warning"] else "🟡" if notif_type in ["erm_reversal", "connection_lost"] else "🟢"
+                        st.caption(f"{priority_color} {notif_type.replace('_', ' ').title()}: {count}")
+                
+                # Show last 3 notifications
+                st.markdown("**Recent Alerts:**")
+                for i, notification in enumerate(unack_notifications[-3:]):
+                    timestamp = notification["timestamp"].strftime("%H:%M:%S")
+                    title = notification["title"]
+                    priority_icon = "🚨" if notification["priority"] == "critical" else "⚠️" if notification["priority"] == "high" else "ℹ️"
+                    st.caption(f"{priority_icon} {timestamp} - {title}")
+                
+                # Quick actions
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button("Clear All", key="clear_notifications"):
+                        self.notification_manager.acknowledge_all_notifications()
+                        st.success("All notifications cleared!")
+                        st.rerun()
+                
+                with col2:
+                    if st.button("Test Alerts", key="test_notifications"):
+                        self.notification_manager.test_notification_system()
+                        st.success("Test notifications sent!")
+            else:
+                st.success("✅ No new alerts")
+                if st.button("Test Notification System", key="test_notifications_empty"):
+                    self.notification_manager.test_notification_system()
+                    st.success("Test notifications sent!")
+            
+            # Notification settings
+            with st.expander("🔧 Notification Settings"):
+                st.subheader("Alert Preferences")
+                
+                self.notification_manager.desktop_notifications_enabled = st.checkbox(
+                    "Desktop Notifications",
+                    value=self.notification_manager.desktop_notifications_enabled
+                )
+                
+                self.notification_manager.audio_enabled = st.checkbox(
+                    "Audio Alerts",
+                    value=self.notification_manager.audio_enabled
+                )
+                
+                self.notification_manager.critical_alerts_only = st.checkbox(
+                    "Critical Alerts Only",
+                    value=self.notification_manager.critical_alerts_only
+                )
+                
+                st.markdown("**Available Notification Types:**")
+                if NOTIFICATIONS_AVAILABLE:
+                    st.success(f"✅ Desktop Notifications ({NOTIFICATIONS_TYPE})")
+                else:
+                    st.error("❌ Desktop Notifications Unavailable")
+                    st.caption("Install: pip install plyer")
+                
+                if AUDIO_AVAILABLE:
+                    st.success(f"✅ Audio Alerts ({AUDIO_TYPE})")
+                else:
+                    st.error("❌ Audio Alerts Unavailable")
             
             st.markdown("---")
             
@@ -1495,6 +1908,11 @@ class TrainingWheelsDashboard:
             if st.button("Reset Emergency Stop", type="primary"):
                 st.session_state.emergency_stop = False
                 st.session_state.system_running = True
+                
+                # Send system restart notification
+                self.notification_manager.send_system_status_alert("Emergency stop deactivated - system restarted")
+                
+                st.success("Emergency stop reset - system restarted!")
                 st.rerun()
             return
         
@@ -1954,21 +2372,33 @@ class TrainingWheelsDashboard:
             # Simulate signals occasionally
             if np.random.random() < 0.1:  # 10% chance
                 signal_types = ["LONG", "SHORT", "NEUTRAL"]
-                chart.last_signal = np.random.choice(signal_types)
-                chart.signal_color = {
-                    "LONG": "green",
-                    "SHORT": "red",
-                    "NEUTRAL": "neutral"
-                }[chart.last_signal]
+                new_signal = np.random.choice(signal_types)
                 
-                # Create Enigma signal
-                if chart.last_signal != "NEUTRAL":
+                # Only send notification if signal changed
+                if chart.last_signal != new_signal and new_signal != "NEUTRAL":
+                    chart.last_signal = new_signal
+                    chart.signal_color = {
+                        "LONG": "green",
+                        "SHORT": "red",
+                        "NEUTRAL": "neutral"
+                    }[new_signal]
+                    
+                    # Send new signal notification
+                    confidence = np.random.uniform(0.6, 0.9)
+                    self.notification_manager.send_new_signal_alert(
+                        chart_id=chart_id,
+                        signal_type=new_signal,
+                        chart_name=chart.account_name,
+                        confidence=confidence
+                    )
+                    
+                    # Create Enigma signal
                     chart.current_enigma_signal = EnigmaSignal(
-                        signal_type=chart.last_signal,
+                        signal_type=new_signal,
                         entry_price=new_price,
                         signal_time=datetime.now(),
                         is_active=True,
-                        confidence=np.random.uniform(0.6, 0.9)
+                        confidence=confidence
                     )
         
         # Update system status
