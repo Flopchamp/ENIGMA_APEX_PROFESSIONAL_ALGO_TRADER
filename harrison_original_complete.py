@@ -2314,7 +2314,7 @@ class TrainingWheelsDashboard:
         
         with col2:
             st.markdown('<h1 class="header-title">TRAINING WHEELS</h1>', unsafe_allow_html=True)
-            st.markdown('<h2 class="header-subtitle">Professional Prop Firm Trading Platform</h2>', unsafe_allow_html=True)
+            st.markdown('<h2 class="header-subtitle">FOR PROP FIRM TRADERS</h2>', unsafe_allow_html=True)
             # Display selected prop firm and trader info
             selected_firm = st.session_state.get('selected_prop_firm', 'FTMO')
             
