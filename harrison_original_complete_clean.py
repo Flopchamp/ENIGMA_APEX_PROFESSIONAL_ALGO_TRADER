@@ -2042,7 +2042,7 @@ class TrainingWheelsDashboard:
                     st.rerun()
             
             with control_col2:
-                if st.button("🎯 Generate", key="nav_generate", help="Generate sample data"):
+                if st.button(" Generate", key="nav_generate", help="Generate sample data"):
                     self.simulate_data_updates()
                     st.success("Sample data generated!")
                     st.rerun()
@@ -2071,7 +2071,7 @@ class TrainingWheelsDashboard:
         
         with col5:
             # Emergency Stop
-            if st.button("🚨 STOP", key="nav_emergency_stop", help="Emergency Stop - Halt all trading", type="primary"):
+            if st.button(" STOP", key="nav_emergency_stop", help="Emergency Stop - Halt all trading", type="primary"):
                 st.session_state.emergency_stop = True
                 st.session_state.system_running = False
                 self.notification_manager.send_emergency_stop_alert()
