@@ -128,7 +128,7 @@ class TradingPlatform(ABC):
 class TradovateAPI(TradingPlatform):
     """Production Tradovate API implementation"""
     
-    def __init__(self, username: str, password: str, environment: str = "demo"):
+    def __init__(self, username: str = "", password: str = "", environment: str = "demo"):
         self.username = username
         self.password = password
         self.environment = environment

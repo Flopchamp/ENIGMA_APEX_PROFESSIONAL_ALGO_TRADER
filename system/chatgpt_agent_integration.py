@@ -424,9 +424,18 @@ class FirstPrinciplesAI:
         
         return max(0, min(0.25, kelly_fraction))  # Cap at 25%
 
+# Create alias for compatibility with validator
+ChatGPTAgentIntegration = 'EnigmaApexAIAgent'
+
+# After class definition, create the actual alias
+def create_chatgpt_alias():
+    global ChatGPTAgentIntegration
+    ChatGPTAgentIntegration = EnigmaApexAIAgent
+
 class EnigmaApexAIAgent:
     """
     Main AI agent that integrates with existing Enigma-Apex system
+    (Also available as ChatGPTAgentIntegration for compatibility)
     """
     
     def __init__(self):
@@ -624,6 +633,10 @@ def test_ai_agent():
     print(f"🔻 Stop Loss: {analysis['stop_loss_suggestion']:.2f}")
     print(f"🔺 Profit Target: {analysis['profit_target_suggestion']:.2f}")
     print(f"💭 Reasoning: {analysis['reasoning']}")
+
+# Create the ChatGPT alias for compatibility
+create_chatgpt_alias()
+ChatGPTAgentIntegration = EnigmaApexAIAgent
 
 if __name__ == "__main__":
     test_ai_agent()

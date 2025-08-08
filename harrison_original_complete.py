@@ -451,6 +451,11 @@ class KellyEngine:
                 max_dd = drawdown
         
         history.max_drawdown = max_dd
+    
+    def get_win_rate(self, chart_id: int) -> float:
+        """Get current win rate for a chart"""
+        history = self.get_trading_history(chart_id)
+        return history.win_rate if history.total_trades > 0 else 0.5
 
 class OCRScreenMonitor:
     """Real-time OCR monitoring for trading signals"""

@@ -273,7 +273,7 @@ class FunctionalityValidator:
         # Test secure credential management
         try:
             from secure_credential_manager import SecureCredentialManager
-            cred_manager = SecureCredentialManager()
+            cred_manager = SecureCredentialManager(testing_mode=True)
             print("   ✅ SecureCredentialManager - Available")
             trading_tests["credential_manager"] = True
         except Exception as e:

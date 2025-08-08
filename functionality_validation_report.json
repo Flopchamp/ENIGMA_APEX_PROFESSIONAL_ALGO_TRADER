@@ -1,0 +1,79 @@
+{
+  "timestamp": "2025-08-08T16:11:48.583300",
+  "success_rate": 71.42857142857143,
+  "features_tested": 7,
+  "working_features": 5,
+  "detailed_results": {
+    "OCR_SYSTEM": {
+      "ocr_method_capture_region": true,
+      "ocr_method_extract_text_from_image": true,
+      "ocr_method_detect_trading_signals": true,
+      "ocr_method_add_monitoring_region": true,
+      "ocr_main_class": true,
+      "streamlit_ocr": true,
+      "ocr_dependencies": true
+    },
+    "KELLY_ENGINE": {
+      "kelly_calculation_class": true,
+      "kelly_method_calculate_kelly": true,
+      "kelly_method_add_trade_result": true,
+      "kelly_method_get_trading_history": true,
+      "kelly_method_get_win_rate": true,
+      "kelly_instantiation": true,
+      "kelly_calculation_execution": true,
+      "kelly_engine_class": true
+    },
+    "CHATGPT_OPTIMIZATION": {
+      "chatgpt_import": true,
+      "chatgpt_instantiation": true,
+      "chatgpt_method_analyze_market_conditions": false,
+      "chatgpt_method_generate_optimization_insights": false,
+      "chatgpt_method_provide_trading_guidance": false,
+      "chatgpt_method_analyze_performance": false,
+      "kelly_optimization": true
+    },
+    "TRADING_INTEGRATIONS": {
+      "tradovate_import": true,
+      "tradovate_instantiation": true,
+      "tradovate_method_authenticate": false,
+      "tradovate_method_get_accounts": false,
+      "tradovate_method_place_order": true,
+      "tradovate_method_get_positions": true,
+      "tradovate_method_connect_websocket": false,
+      "production_manager": true,
+      "credential_manager": true
+    },
+    "RISK_MANAGEMENT": {
+      "erm_calculation": true,
+      "risk_method_handle_erm_reversal": true,
+      "risk_method_estimate_atr": true,
+      "risk_method_execute_reversal_trade": true,
+      "erm_class": true
+    },
+    "UI_SYSTEM": {
+      "streamlit_available": true,
+      "ui_method_render_header": true,
+      "ui_method_render_chart_grid": true,
+      "ui_method_render_control_panel": true,
+      "ui_method_render_sidebar_settings": true,
+      "ui_method_render_connection_setup_modal": true,
+      "ui_method_render_quick_setup_wizard": true,
+      "main_dashboard": true,
+      "plotting": true
+    },
+    "DATA_PROCESSING": {
+      "pandas": true,
+      "numpy": true,
+      "requests": true,
+      "websockets": true
+    }
+  },
+  "guarantees": {
+    "OCR Signal Detection": true,
+    "Kelly Criterion Engine": true,
+    "ChatGPT Optimization": false,
+    "Trading Integrations": false,
+    "Risk Management": true,
+    "User Interface": true
+  }
+}

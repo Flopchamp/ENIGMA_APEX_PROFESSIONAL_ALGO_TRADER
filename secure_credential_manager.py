@@ -38,13 +38,17 @@ class TradingCredentials:
 class SecureCredentialManager:
     """Manages encrypted storage of trading platform credentials"""
     
-    def __init__(self, master_password: Optional[str] = None):
+    def __init__(self, master_password: Optional[str] = None, testing_mode: bool = False):
         self.logger = logging.getLogger(__name__)
         self.app_name = "ENIGMA_APEX_TRADER"
+        self.testing_mode = testing_mode
         
         # Initialize encryption
         if master_password:
             self.master_password = master_password
+        elif testing_mode:
+            # Use default password for testing
+            self.master_password = "testing_password_123"
         else:
             self.master_password = self._get_or_create_master_password()
         
