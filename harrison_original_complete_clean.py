@@ -829,6 +829,381 @@ class NinjaTraderConnector:
             logging.error(f"Error getting NinjaTrader positions: {e}")
             return {}
 
+class AlgoTraderSignalReader:
+    """
+    AlgoTrader Signal Reader - Core Integration for Signal Reading
+    
+    This class handles reading trading signals from AlgoTrader platform
+    Supports multiple signal sources: File, TCP/Socket, HTTP API, Database
+    """
+    
+    def __init__(self):
+        self.signal_sources = {
+            "file_monitor": {"enabled": False, "path": "", "format": "csv"},
+            "tcp_socket": {"enabled": False, "host": "localhost", "port": 9999},
+            "http_api": {"enabled": False, "url": "", "headers": {}},
+            "database": {"enabled": False, "connection_string": ""},
+            "ftp_monitor": {"enabled": False, "host": "", "username": "", "password": ""}
+        }
+        self.signal_buffer = []
+        self.last_signal_time = None
+        self.is_monitoring = False
+        self.signal_filters = {
+            "min_confidence": 0.7,
+            "allowed_instruments": [],
+            "signal_types": ["BUY", "SELL", "LONG", "SHORT"]
+        }
+    
+    def configure_file_monitor(self, file_path: str, file_format: str = "csv", polling_interval: int = 1):
+        """Configure file-based signal monitoring (most common AlgoTrader setup)"""
+        self.signal_sources["file_monitor"] = {
+            "enabled": True,
+            "path": file_path,
+            "format": file_format,
+            "polling_interval": polling_interval,
+            "last_modified": 0
+        }
+        logging.info(f"Configured file monitor: {file_path}")
+    
+    def configure_tcp_socket(self, host: str = "localhost", port: int = 9999):
+        """Configure TCP socket for real-time signal reception"""
+        self.signal_sources["tcp_socket"] = {
+            "enabled": True,
+            "host": host,
+            "port": port,
+            "socket": None,
+            "connected": False
+        }
+        logging.info(f"Configured TCP socket: {host}:{port}")
+    
+    def configure_http_api(self, api_url: str, headers: Dict[str, str] = None):
+        """Configure HTTP API polling for signals"""
+        self.signal_sources["http_api"] = {
+            "enabled": True,
+            "url": api_url,
+            "headers": headers or {},
+            "last_poll": 0
+        }
+        logging.info(f"Configured HTTP API: {api_url}")
+    
+    def start_monitoring(self):
+        """Start monitoring all enabled signal sources"""
+        self.is_monitoring = True
+        logging.info("AlgoTrader signal monitoring started")
+        
+        # Start file monitor if enabled
+        if self.signal_sources["file_monitor"]["enabled"]:
+            self._start_file_monitor()
+        
+        # Start TCP socket if enabled
+        if self.signal_sources["tcp_socket"]["enabled"]:
+            self._start_tcp_socket()
+    
+    def stop_monitoring(self):
+        """Stop all signal monitoring"""
+        self.is_monitoring = False
+        
+        # Close TCP socket if connected
+        if self.signal_sources["tcp_socket"]["enabled"] and self.signal_sources["tcp_socket"].get("socket"):
+            try:
+                self.signal_sources["tcp_socket"]["socket"].close()
+            except:
+                pass
+        
+        logging.info("AlgoTrader signal monitoring stopped")
+    
+    def _start_file_monitor(self):
+        """Monitor file for new signals"""
+        file_config = self.signal_sources["file_monitor"]
+        file_path = file_config["path"]
+        
+        if not os.path.exists(file_path):
+            logging.warning(f"Signal file not found: {file_path}")
+            return
+        
+        try:
+            # Check if file was modified
+            current_mtime = os.path.getmtime(file_path)
+            if current_mtime > file_config["last_modified"]:
+                file_config["last_modified"] = current_mtime
+                
+                # Read and parse new signals
+                signals = self._parse_signal_file(file_path, file_config["format"])
+                for signal in signals:
+                    self._process_new_signal(signal)
+                    
+        except Exception as e:
+            logging.error(f"Error monitoring signal file: {e}")
+    
+    def _start_tcp_socket(self):
+        """Start TCP socket connection for real-time signals"""
+        socket_config = self.signal_sources["tcp_socket"]
+        
+        try:
+            if not socket_config.get("connected", False):
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.connect((socket_config["host"], socket_config["port"]))
+                socket_config["socket"] = sock
+                socket_config["connected"] = True
+                logging.info(f"Connected to AlgoTrader TCP socket: {socket_config['host']}:{socket_config['port']}")
+            
+            # Non-blocking receive
+            sock = socket_config["socket"]
+            sock.settimeout(0.1)  # 100ms timeout
+            
+            try:
+                data = sock.recv(1024).decode('utf-8')
+                if data:
+                    signal = self._parse_tcp_signal(data)
+                    if signal:
+                        self._process_new_signal(signal)
+            except socket.timeout:
+                pass  # No data available
+            except Exception as e:
+                logging.error(f"TCP socket error: {e}")
+                socket_config["connected"] = False
+                
+        except Exception as e:
+            logging.error(f"Failed to connect to AlgoTrader TCP socket: {e}")
+            socket_config["connected"] = False
+    
+    def _parse_signal_file(self, file_path: str, file_format: str) -> List[Dict[str, Any]]:
+        """Parse signals from file (CSV, JSON, TXT formats)"""
+        signals = []
+        
+        try:
+            if file_format.lower() == "csv":
+                import pandas as pd
+                df = pd.read_csv(file_path)
+                
+                # Expected CSV columns: timestamp, instrument, signal_type, price, confidence
+                for _, row in df.iterrows():
+                    signal = {
+                        "timestamp": self._parse_timestamp(row.get("timestamp", "")),
+                        "instrument": row.get("instrument", ""),
+                        "signal_type": row.get("signal_type", "").upper(),
+                        "price": float(row.get("price", 0)),
+                        "confidence": float(row.get("confidence", 0.8)),
+                        "source": "file_csv"
+                    }
+                    signals.append(signal)
+            
+            elif file_format.lower() == "json":
+                with open(file_path, 'r') as f:
+                    data = json.load(f)
+                    
+                if isinstance(data, list):
+                    for item in data:
+                        signal = self._normalize_signal_data(item, "file_json")
+                        signals.append(signal)
+                else:
+                    signal = self._normalize_signal_data(data, "file_json")
+                    signals.append(signal)
+            
+            elif file_format.lower() == "txt":
+                with open(file_path, 'r') as f:
+                    lines = f.readlines()
+                    
+                for line in lines:
+                    signal = self._parse_text_signal(line.strip())
+                    if signal:
+                        signals.append(signal)
+        
+        except Exception as e:
+            logging.error(f"Error parsing signal file: {e}")
+        
+        return signals
+    
+    def _parse_tcp_signal(self, data: str) -> Optional[Dict[str, Any]]:
+        """Parse signal from TCP socket data"""
+        try:
+            # Common formats: JSON, pipe-delimited, comma-separated
+            if data.startswith('{'):
+                # JSON format
+                signal_data = json.loads(data)
+                return self._normalize_signal_data(signal_data, "tcp_json")
+            
+            elif '|' in data:
+                # Pipe-delimited format: TIMESTAMP|INSTRUMENT|SIGNAL|PRICE|CONFIDENCE
+                parts = data.split('|')
+                if len(parts) >= 4:
+                    return {
+                        "timestamp": self._parse_timestamp(parts[0]),
+                        "instrument": parts[1],
+                        "signal_type": parts[2].upper(),
+                        "price": float(parts[3]),
+                        "confidence": float(parts[4]) if len(parts) > 4 else 0.8,
+                        "source": "tcp_pipe"
+                    }
+            
+            elif ',' in data:
+                # Comma-separated format
+                parts = data.split(',')
+                if len(parts) >= 4:
+                    return {
+                        "timestamp": self._parse_timestamp(parts[0]),
+                        "instrument": parts[1],
+                        "signal_type": parts[2].upper(),
+                        "price": float(parts[3]),
+                        "confidence": float(parts[4]) if len(parts) > 4 else 0.8,
+                        "source": "tcp_csv"
+                    }
+        
+        except Exception as e:
+            logging.error(f"Error parsing TCP signal: {e}")
+        
+        return None
+    
+    def _parse_text_signal(self, line: str) -> Optional[Dict[str, Any]]:
+        """Parse signal from text line"""
+        try:
+            # Expected format: "2023-08-08 14:30:00,ES,BUY,4500.50,0.85"
+            parts = line.split(',')
+            if len(parts) >= 4:
+                return {
+                    "timestamp": self._parse_timestamp(parts[0]),
+                    "instrument": parts[1].strip(),
+                    "signal_type": parts[2].strip().upper(),
+                    "price": float(parts[3]),
+                    "confidence": float(parts[4]) if len(parts) > 4 else 0.8,
+                    "source": "file_txt"
+                }
+        except Exception as e:
+            logging.error(f"Error parsing text signal: {e}")
+        
+        return None
+    
+    def _normalize_signal_data(self, data: Dict[str, Any], source: str) -> Dict[str, Any]:
+        """Normalize signal data to consistent format"""
+        return {
+            "timestamp": self._parse_timestamp(data.get("timestamp", data.get("time", ""))),
+            "instrument": data.get("instrument", data.get("symbol", "")),
+            "signal_type": str(data.get("signal_type", data.get("signal", data.get("action", "")))).upper(),
+            "price": float(data.get("price", data.get("entry_price", 0))),
+            "confidence": float(data.get("confidence", data.get("strength", 0.8))),
+            "source": source,
+            "metadata": data.get("metadata", {})
+        }
+    
+    def _parse_timestamp(self, timestamp_str: str) -> datetime:
+        """Parse timestamp from various formats"""
+        if not timestamp_str:
+            return datetime.now()
+        
+        try:
+            # Try common formats
+            formats = [
+                "%Y-%m-%d %H:%M:%S",
+                "%Y-%m-%d %H:%M:%S.%f",
+                "%m/%d/%Y %H:%M:%S",
+                "%d/%m/%Y %H:%M:%S",
+                "%Y-%m-%dT%H:%M:%S",
+                "%Y-%m-%dT%H:%M:%SZ"
+            ]
+            
+            for fmt in formats:
+                try:
+                    return datetime.strptime(timestamp_str, fmt)
+                except ValueError:
+                    continue
+            
+            # If all else fails, try to parse as float (Unix timestamp)
+            return datetime.fromtimestamp(float(timestamp_str))
+            
+        except:
+            return datetime.now()
+    
+    def _process_new_signal(self, signal: Dict[str, Any]):
+        """Process a new signal and apply filters"""
+        try:
+            # Apply signal filters
+            if not self._passes_filters(signal):
+                return
+            
+            # Add to signal buffer
+            signal["processed_time"] = datetime.now()
+            self.signal_buffer.append(signal)
+            
+            # Keep only last 100 signals
+            if len(self.signal_buffer) > 100:
+                self.signal_buffer = self.signal_buffer[-100:]
+            
+            self.last_signal_time = signal["processed_time"]
+            
+            # Log the signal
+            logging.info(f"New AlgoTrader signal: {signal['instrument']} {signal['signal_type']} @ {signal['price']}")
+            
+        except Exception as e:
+            logging.error(f"Error processing signal: {e}")
+    
+    def _passes_filters(self, signal: Dict[str, Any]) -> bool:
+        """Check if signal passes configured filters"""
+        try:
+            # Check confidence threshold
+            if signal.get("confidence", 0) < self.signal_filters["min_confidence"]:
+                return False
+            
+            # Check allowed instruments
+            allowed_instruments = self.signal_filters["allowed_instruments"]
+            if allowed_instruments and signal.get("instrument", "") not in allowed_instruments:
+                return False
+            
+            # Check signal types
+            allowed_types = self.signal_filters["signal_types"]
+            if signal.get("signal_type", "") not in allowed_types:
+                return False
+            
+            return True
+            
+        except Exception as e:
+            logging.error(f"Error checking signal filters: {e}")
+            return False
+    
+    def get_latest_signals(self, count: int = 10) -> List[Dict[str, Any]]:
+        """Get the latest signals from buffer"""
+        return self.signal_buffer[-count:] if self.signal_buffer else []
+    
+    def get_signals_for_instrument(self, instrument: str, count: int = 5) -> List[Dict[str, Any]]:
+        """Get latest signals for specific instrument"""
+        instrument_signals = [s for s in self.signal_buffer if s.get("instrument", "") == instrument]
+        return instrument_signals[-count:] if instrument_signals else []
+    
+    def clear_signal_buffer(self):
+        """Clear the signal buffer"""
+        self.signal_buffer = []
+        logging.info("Signal buffer cleared")
+    
+    def get_signal_statistics(self) -> Dict[str, Any]:
+        """Get signal processing statistics"""
+        if not self.signal_buffer:
+            return {}
+        
+        instruments = {}
+        signal_types = {}
+        sources = {}
+        
+        for signal in self.signal_buffer:
+            # Count by instrument
+            instrument = signal.get("instrument", "Unknown")
+            instruments[instrument] = instruments.get(instrument, 0) + 1
+            
+            # Count by signal type
+            signal_type = signal.get("signal_type", "Unknown")
+            signal_types[signal_type] = signal_types.get(signal_type, 0) + 1
+            
+            # Count by source
+            source = signal.get("source", "Unknown")
+            sources[source] = sources.get(source, 0) + 1
+        
+        return {
+            "total_signals": len(self.signal_buffer),
+            "instruments": instruments,
+            "signal_types": signal_types,
+            "sources": sources,
+            "last_signal_time": self.last_signal_time,
+            "monitoring_active": self.is_monitoring
+        }
+
 class TradovateConnector:
     """Tradovate API connector"""
     def __init__(self):
@@ -927,6 +1302,7 @@ class TrainingWheelsDashboard:
         # Initialize connectors first
         self.ninja_connector = NinjaTraderConnector()
         self.tradovate_connector = TradovateConnector()
+        self.algotrader_reader = AlgoTraderSignalReader()
         self.ocr_manager = OCRManager()
         self.ocr_screen_monitor = OCRScreenMonitor()
         self.kelly_engine = KellyEngine()
@@ -1065,6 +1441,106 @@ class TrainingWheelsDashboard:
             font-size: 0.8rem;
             font-weight: 600;
         }
+        
+        /* Navigation Bar Styles */
+        .nav-bar {
+            background: linear-gradient(90deg, #2c3e50 0%, #34495e 100%);
+            padding: 0.8rem 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .nav-controls {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            color: white;
+        }
+        
+        .nav-section {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .connection-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        .connection-connected {
+            background: rgba(40, 167, 69, 0.8);
+            border-color: rgba(40, 167, 69, 0.5);
+        }
+        
+        .connection-disconnected {
+            background: rgba(220, 53, 69, 0.8);
+            border-color: rgba(220, 53, 69, 0.5);
+        }
+        
+        .nav-button {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 0.4rem 0.8rem;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .nav-button:hover {
+            background: rgba(255,255,255,0.2);
+            border-color: rgba(255,255,255,0.5);
+        }
+        
+        .emergency-stop-nav {
+            background: linear-gradient(45deg, #dc3545, #c82333);
+            border: none;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
+            animation: pulse-red 2s infinite;
+        }
+        
+        @keyframes pulse-red {
+            0% { box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3); }
+            50% { box-shadow: 0 2px 15px rgba(220, 53, 69, 0.6); }
+            100% { box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3); }
+        }
+        
+        .nav-notifications {
+            position: relative;
+            display: inline-block;
+        }
+        
+        .notification-badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: #dc3545;
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            font-size: 0.7rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
         </style>
         """, unsafe_allow_html=True)
     
@@ -1141,6 +1617,13 @@ class TrainingWheelsDashboard:
                 "tradovate_api_secret": "",
                 "tradovate_environment": "demo",
                 "tradovate_account_ids": [],
+                "algotrader_signal_file": "",
+                "algotrader_tcp_host": "localhost",
+                "algotrader_tcp_port": 9999,
+                "algotrader_http_url": "",
+                "algotrader_enabled": False,
+                "algotrader_signal_format": "csv",
+                "algotrader_min_confidence": 0.7,
                 "connections_configured": False
             }
         
@@ -1199,6 +1682,12 @@ class TrainingWheelsDashboard:
             
         if 'show_ocr_config' not in st.session_state:
             st.session_state.show_ocr_config = False
+            
+        if 'show_quick_connect' not in st.session_state:
+            st.session_state.show_quick_connect = False
+            
+        if 'show_notifications_modal' not in st.session_state:
+            st.session_state.show_notifications_modal = False
     
     def create_prop_firm_configs(self) -> Dict[str, PropFirmConfig]:
         """Create prop firm configurations for different firms"""
@@ -1480,7 +1969,7 @@ class TrainingWheelsDashboard:
         
         with col2:
             st.markdown('<h1 class="header-title">TRAINING WHEELS</h1>', unsafe_allow_html=True)
-            st.markdown('<h2 class="header-subtitle">Professional Prop Firm Trading Platform</h2>', unsafe_allow_html=True)
+            st.markdown('<h2 class="header-subtitle">FOR PROP FIRM TRADERS </h2>', unsafe_allow_html=True)
         
         with col3:
             # Real-time system status
@@ -1488,6 +1977,182 @@ class TrainingWheelsDashboard:
             st.markdown(f'<div style="text-align: right; font-size: 1.1rem; font-weight: 600;">TIME: {current_time}</div>', unsafe_allow_html=True)
         
         st.markdown('</div>', unsafe_allow_html=True)
+    
+    def render_navigation_bar(self):
+        """Render horizontal navigation bar with connection controls"""
+        st.markdown('<div class="nav-bar">', unsafe_allow_html=True)
+        
+        # Create columns for navigation sections
+        col1, col2, col3, col4, col5 = st.columns([2, 2, 2, 2, 1])
+        
+        with col1:
+            # NinjaTrader Connection
+            nt_connected = self.ninja_connector.is_connected
+            nt_status_class = "connection-connected" if nt_connected else "connection-disconnected"
+            nt_status_icon = "🟢" if nt_connected else "🔴"
+            nt_status_text = "Connected" if nt_connected else "Disconnected"
+            
+            st.markdown(f'<div class="connection-status {nt_status_class}">{nt_status_icon} NinjaTrader: {nt_status_text}</div>', unsafe_allow_html=True)
+            
+            if st.button("🥷 Connect NT", key="nav_connect_nt", help="Connect to NinjaTrader"):
+                with st.spinner("Connecting to NinjaTrader..."):
+                    if self.ninja_connector.connect_via_socket():
+                        self.notification_manager.send_system_status_alert("NinjaTrader connected successfully")
+                        st.success("✅ NinjaTrader Connected!")
+                    else:
+                        self.notification_manager.send_connection_lost_alert("NinjaTrader")
+                        st.error("❌ Connection Failed!")
+                    st.rerun()
+        
+        with col2:
+            # Tradovate Connection
+            tv_connected = self.tradovate_connector.is_authenticated
+            tv_status_class = "connection-connected" if tv_connected else "connection-disconnected"
+            tv_status_icon = "🟢" if tv_connected else "🔴"
+            tv_status_text = "Connected" if tv_connected else "Disconnected"
+            
+            st.markdown(f'<div class="connection-status {tv_status_class}">{tv_status_icon} Tradovate: {tv_status_text}</div>', unsafe_allow_html=True)
+            
+            if st.button("📈 Connect TV", key="nav_connect_tv", help="Connect to Tradovate"):
+                with st.spinner("Connecting to Tradovate..."):
+                    # Use demo credentials for quick connection
+                    if self.tradovate_connector.authenticate("demo", "demo", "demo"):
+                        self.notification_manager.send_system_status_alert("Tradovate connected successfully")
+                        st.success("✅ Tradovate Connected!")
+                    else:
+                        self.notification_manager.send_connection_lost_alert("Tradovate")
+                        st.error("❌ Connection Failed!")
+                    st.rerun()
+            
+            # Quick setup button
+            if st.button("⚙️ Setup", key="nav_setup", help="Quick connection setup"):
+                st.session_state.show_quick_connect = True
+                st.rerun()
+        
+        with col3:
+            # System Controls
+            st.markdown('<div style="color: white; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.3rem;">System Controls</div>', unsafe_allow_html=True)
+            
+            control_col1, control_col2 = st.columns(2)
+            with control_col1:
+                if st.button("🔄 Refresh", key="nav_refresh", help="Refresh all data"):
+                    self.refresh_real_time_data()
+                    self.simulate_data_updates()
+                    st.success("Data refreshed!")
+                    st.rerun()
+            
+            with control_col2:
+                if st.button("🎯 Generate", key="nav_generate", help="Generate sample data"):
+                    self.simulate_data_updates()
+                    st.success("Sample data generated!")
+                    st.rerun()
+        
+        with col4:
+            # Notifications Panel
+            unack_notifications = self.notification_manager.get_unacknowledged_notifications()
+            notification_count = len(unack_notifications)
+            
+            st.markdown('<div style="color: white; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.3rem;">Alerts</div>', unsafe_allow_html=True)
+            
+            if notification_count > 0:
+                if st.button(f"🔔 Alerts ({notification_count})", key="nav_notifications", help="View notifications"):
+                    # Show notifications in sidebar or modal
+                    st.session_state.show_notifications_modal = True
+                    st.rerun()
+            else:
+                st.markdown('<div style="color: #28a745; font-size: 0.8rem;">✅ No alerts</div>', unsafe_allow_html=True)
+            
+            # Quick clear button for notifications
+            if notification_count > 0:
+                if st.button("Clear All", key="nav_clear_notifications", help="Clear all notifications"):
+                    self.notification_manager.acknowledge_all_notifications()
+                    st.success("Notifications cleared!")
+                    st.rerun()
+        
+        with col5:
+            # Emergency Stop
+            if st.button("🚨 STOP", key="nav_emergency_stop", help="Emergency Stop - Halt all trading", type="primary"):
+                st.session_state.emergency_stop = True
+                st.session_state.system_running = False
+                self.notification_manager.send_emergency_stop_alert()
+                
+                # Stop all charts
+                for chart in st.session_state.charts.values():
+                    chart.is_active = False
+                    chart.signal_color = "neutral"
+                
+                st.error("🚨 EMERGENCY STOP ACTIVATED!")
+                st.rerun()
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    def render_quick_connection_setup(self):
+        """Render quick connection setup modal"""
+        if st.session_state.get('show_quick_connect', False):
+            st.markdown("### ⚡ Quick Connection Setup")
+            
+            tab1, tab2 = st.tabs(["🥷 NinjaTrader", "📈 Tradovate"])
+            
+            with tab1:
+                st.markdown("#### NinjaTrader Connection")
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    nt_host = st.text_input("Host", value="localhost", key="quick_nt_host")
+                    nt_port = st.number_input("Port", value=36973, min_value=1, max_value=65535, key="quick_nt_port")
+                
+                with col2:
+                    st.markdown("**Connection Options:**")
+                    if st.button("🔌 Socket Connection", key="quick_nt_socket", use_container_width=True):
+                        if self.ninja_connector.connect_via_socket(nt_host, nt_port):
+                            st.success("✅ Socket connection successful!")
+                            self.notification_manager.send_system_status_alert("NinjaTrader socket connected")
+                        else:
+                            st.error("❌ Socket connection failed!")
+                            self.notification_manager.send_connection_lost_alert("NinjaTrader")
+                    
+                    if st.button("🎯 ATM Connection", key="quick_nt_atm", use_container_width=True):
+                        if self.ninja_connector.connect_via_atm():
+                            st.success("✅ ATM connection successful!")
+                            self.notification_manager.send_system_status_alert("NinjaTrader ATM connected")
+                        else:
+                            st.error("❌ ATM connection failed!")
+                            self.notification_manager.send_connection_lost_alert("NinjaTrader")
+            
+            with tab2:
+                st.markdown("#### Tradovate Connection")
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    tv_username = st.text_input("Username", key="quick_tv_username", help="Enter your Tradovate username")
+                    tv_password = st.text_input("Password", type="password", key="quick_tv_password", help="Enter your Tradovate password")
+                    tv_env = st.selectbox("Environment", ["demo", "live"], key="quick_tv_env")
+                
+                with col2:
+                    st.markdown("**Quick Connect:**")
+                    if st.button("🚀 Demo Connect", key="quick_tv_demo", use_container_width=True):
+                        if self.tradovate_connector.authenticate("demo", "demo", "demo"):
+                            st.success("✅ Demo connection successful!")
+                            self.notification_manager.send_system_status_alert("Tradovate demo connected")
+                        else:
+                            st.error("❌ Demo connection failed!")
+                            self.notification_manager.send_connection_lost_alert("Tradovate")
+                    
+                    if st.button("🔐 Authenticate", key="quick_tv_auth", use_container_width=True):
+                        if tv_username and tv_password:
+                            if self.tradovate_connector.authenticate(tv_username, tv_password, tv_env):
+                                st.success("✅ Authentication successful!")
+                                self.notification_manager.send_system_status_alert(f"Tradovate {tv_env} connected")
+                            else:
+                                st.error("❌ Authentication failed!")
+                                self.notification_manager.send_connection_lost_alert("Tradovate")
+                        else:
+                            st.warning("Please enter username and password")
+            
+            # Close button
+            if st.button("Close Quick Setup", type="secondary"):
+                st.session_state.show_quick_connect = False
+                st.rerun()
     
     def render_priority_indicator(self):
         """Render professional margin status indicator"""
@@ -1677,14 +2342,8 @@ class TrainingWheelsDashboard:
             # System Controls
             st.subheader("🎮 System Controls")
             
-            if st.button("🔄 Refresh All Data", use_container_width=True):
-                # Refresh all chart data
-                for chart_id, chart in st.session_state.charts.items():
-                    chart.last_update = datetime.now()
-                    # Simulate some data changes
-                    chart.power_score = np.random.randint(60, 95)
-                    chart.daily_pnl += np.random.uniform(-50, 50)
-                st.success("All data refreshed!")
+            if st.button("⚡ Quick Connect", use_container_width=True):
+                st.session_state.show_quick_connect = True
                 st.rerun()
             
             # Monitoring toggle
@@ -1695,27 +2354,32 @@ class TrainingWheelsDashboard:
             
             st.markdown("---")
             
-            # Connection Testing
-            st.subheader("🔗 Connections")
+            # Connection Status Overview
+            st.subheader("🔗 Connection Status")
             
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.button("Test NT", use_container_width=True):
-                    if self.ninja_connector.connect_via_socket():
-                        st.success("NinjaTrader Connected!")
-                        self.notification_manager.send_system_status_alert("NinjaTrader connection successful")
-                    else:
-                        st.error("NT Connection Failed")
-                        self.notification_manager.send_connection_lost_alert("NinjaTrader")
+            # NinjaTrader status
+            nt_status = "🟢 Connected" if self.ninja_connector.is_connected else "🔴 Disconnected"
+            st.markdown(f"**NinjaTrader:** {nt_status}")
             
-            with col2:
-                if st.button("Test TV", use_container_width=True):
-                    if self.tradovate_connector.authenticate("demo", "demo"):
-                        st.success("Tradovate Connected!")
-                        self.notification_manager.send_system_status_alert("Tradovate connection successful")
+            # Tradovate status  
+            tv_status = "🟢 Connected" if self.tradovate_connector.is_authenticated else "🔴 Disconnected"
+            st.markdown(f"**Tradovate:** {tv_status}")
+            
+            # Quick test buttons
+            if st.button("🧪 Test All Connections", use_container_width=True):
+                with st.spinner("Testing connections..."):
+                    nt_test = self.ninja_connector.connect_via_socket()
+                    tv_test = self.tradovate_connector.authenticate("demo", "demo")
+                    
+                    if nt_test and tv_test:
+                        st.success("✅ All connections working!")
+                    elif nt_test:
+                        st.warning("⚠️ Only NinjaTrader connected")
+                    elif tv_test:
+                        st.warning("⚠️ Only Tradovate connected")
                     else:
-                        st.error("TV Connection Failed")
-                        self.notification_manager.send_connection_lost_alert("Tradovate")
+                        st.error("❌ No connections active")
+                    st.rerun()
             
             st.markdown("---")
             
@@ -1901,6 +2565,14 @@ class TrainingWheelsDashboard:
         """Render main dashboard content"""
         # Header
         self.render_header()
+        
+        # Horizontal Navigation Bar
+        self.render_navigation_bar()
+        
+        # Quick connection setup modal
+        if st.session_state.get('show_quick_connect', False):
+            self.render_quick_connection_setup()
+            return
         
         # Emergency stop check
         if st.session_state.get('emergency_stop', False):
@@ -2149,6 +2821,336 @@ class TrainingWheelsDashboard:
             if st.form_submit_button("Save NinjaTrader Config"):
                 st.success("NinjaTrader configuration saved!")
     
+    def render_algotrader_setup(self):
+        """AlgoTrader signal reading configuration"""
+        st.subheader("📊 AlgoTrader Signal Reader Setup")
+        st.markdown("""
+        **The core goal: Read trading signals from AlgoTrader platform**
+        
+        Configure how to receive signals from your AlgoTrader system. 
+        Multiple input methods supported for maximum flexibility.
+        """)
+        
+        # Enable/Disable AlgoTrader
+        st.session_state.connection_config["algotrader_enabled"] = st.checkbox(
+            "Enable AlgoTrader Signal Reading", 
+            value=st.session_state.connection_config["algotrader_enabled"],
+            help="Turn on to start reading signals from AlgoTrader"
+        )
+        
+        if st.session_state.connection_config["algotrader_enabled"]:
+            
+            # Signal Input Method Selection
+            signal_method = st.selectbox(
+                "Signal Input Method",
+                ["File Monitor", "TCP Socket", "HTTP API", "Database"],
+                help="Choose how AlgoTrader sends signals to this system"
+            )
+            
+            st.markdown("---")
+            
+            if signal_method == "File Monitor":
+                st.markdown("#### 📁 File Monitor Configuration")
+                st.info("""
+                **Most Common Setup**: AlgoTrader writes signals to a CSV/TXT file
+                This system monitors the file for changes and reads new signals.
+                """)
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.session_state.connection_config["algotrader_signal_file"] = st.text_input(
+                        "Signal File Path",
+                        value=st.session_state.connection_config["algotrader_signal_file"],
+                        placeholder="C:\\AlgoTrader\\signals\\live_signals.csv",
+                        help="Full path to the file where AlgoTrader writes signals"
+                    )
+                    
+                    st.session_state.connection_config["algotrader_signal_format"] = st.selectbox(
+                        "File Format",
+                        ["csv", "json", "txt"],
+                        index=0 if st.session_state.connection_config["algotrader_signal_format"] == "csv" else 1,
+                        help="Format of the signal file"
+                    )
+                
+                with col2:
+                    polling_interval = st.number_input(
+                        "Check Interval (seconds)",
+                        min_value=1, max_value=60, value=5,
+                        help="How often to check the file for new signals"
+                    )
+                    
+                    st.session_state.connection_config["algotrader_min_confidence"] = st.slider(
+                        "Minimum Signal Confidence",
+                        min_value=0.0, max_value=1.0, 
+                        value=st.session_state.connection_config["algotrader_min_confidence"],
+                        step=0.1,
+                        help="Only process signals above this confidence level"
+                    )
+                
+                # File Format Examples
+                st.markdown("#### 📋 Expected File Formats")
+                
+                format_tab1, format_tab2, format_tab3 = st.tabs(["CSV Format", "JSON Format", "TXT Format"])
+                
+                with format_tab1:
+                    st.code("""
+# CSV Format (Header required)
+timestamp,instrument,signal_type,price,confidence
+2025-08-08 14:30:00,ES,BUY,4500.50,0.85
+2025-08-08 14:31:00,NQ,SELL,15200.25,0.92
+2025-08-08 14:32:00,YM,BUY,34500.00,0.78
+                    """, language="csv")
+                
+                with format_tab2:
+                    st.code("""
+// JSON Format (Array of signals)
+[
+  {
+    "timestamp": "2025-08-08 14:30:00",
+    "instrument": "ES",
+    "signal_type": "BUY",
+    "price": 4500.50,
+    "confidence": 0.85,
+    "metadata": {"strategy": "EMA_Crossover"}
+  }
+]
+                    """, language="json")
+                
+                with format_tab3:
+                    st.code("""
+# TXT Format (Comma-separated)
+2025-08-08 14:30:00,ES,BUY,4500.50,0.85
+2025-08-08 14:31:00,NQ,SELL,15200.25,0.92
+2025-08-08 14:32:00,YM,BUY,34500.00,0.78
+                    """, language="text")
+            
+            elif signal_method == "TCP Socket":
+                st.markdown("#### 🔌 TCP Socket Configuration")
+                st.info("""
+                **Real-time Setup**: AlgoTrader sends signals via TCP socket
+                Best for low-latency signal transmission.
+                """)
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.session_state.connection_config["algotrader_tcp_host"] = st.text_input(
+                        "Host", 
+                        value=st.session_state.connection_config["algotrader_tcp_host"],
+                        help="IP address where AlgoTrader sends signals"
+                    )
+                with col2:
+                    st.session_state.connection_config["algotrader_tcp_port"] = st.number_input(
+                        "Port", 
+                        value=st.session_state.connection_config["algotrader_tcp_port"],
+                        min_value=1000, max_value=65535,
+                        help="Port number for TCP connection"
+                    )
+                
+                st.markdown("#### 📡 TCP Signal Formats")
+                st.code("""
+# JSON Format
+{"timestamp":"2025-08-08 14:30:00","instrument":"ES","signal_type":"BUY","price":4500.50,"confidence":0.85}
+
+# Pipe-delimited Format  
+2025-08-08 14:30:00|ES|BUY|4500.50|0.85
+
+# Comma-separated Format
+2025-08-08 14:30:00,ES,BUY,4500.50,0.85
+                """, language="text")
+            
+            elif signal_method == "HTTP API":
+                st.markdown("#### 🌐 HTTP API Configuration")
+                st.info("""
+                **Polling Setup**: Regularly check AlgoTrader HTTP endpoint for signals
+                Good for cloud-based AlgoTrader setups.
+                """)
+                
+                st.session_state.connection_config["algotrader_http_url"] = st.text_input(
+                    "API Endpoint URL",
+                    value=st.session_state.connection_config["algotrader_http_url"],
+                    placeholder="http://localhost:8080/api/signals",
+                    help="HTTP endpoint that returns signal data"
+                )
+                
+                # API Headers
+                st.markdown("**API Headers (Optional)**")
+                header_col1, header_col2 = st.columns(2)
+                with header_col1:
+                    api_key = st.text_input("API Key", type="password")
+                with header_col2:
+                    auth_header = st.text_input("Authorization Header")
+            
+            elif signal_method == "Database":
+                st.markdown("#### 🗄️ Database Configuration")
+                st.info("""
+                **Database Setup**: Read signals directly from AlgoTrader database
+                Requires database connection configuration.
+                """)
+                
+                db_type = st.selectbox("Database Type", ["MySQL", "PostgreSQL", "SQL Server", "SQLite"])
+                connection_string = st.text_input(
+                    "Connection String",
+                    placeholder="mysql://user:password@localhost:3306/algotrader",
+                    type="password"
+                )
+                
+                table_name = st.text_input("Signals Table Name", value="signals")
+            
+            # Signal Filtering
+            st.markdown("---")
+            st.markdown("#### 🎯 Signal Filtering")
+            
+            filter_col1, filter_col2 = st.columns(2)
+            with filter_col1:
+                allowed_instruments = st.multiselect(
+                    "Allowed Instruments",
+                    ["ES", "NQ", "YM", "RTY", "CL", "GC", "EURUSD", "GBPUSD", "USDJPY"],
+                    default=["ES", "NQ", "YM"],
+                    help="Only process signals for these instruments"
+                )
+            
+            with filter_col2:
+                allowed_signal_types = st.multiselect(
+                    "Allowed Signal Types",
+                    ["BUY", "SELL", "LONG", "SHORT", "CLOSE", "EXIT"],
+                    default=["BUY", "SELL", "LONG", "SHORT"],
+                    help="Only process these types of signals"
+                )
+            
+            # Test Configuration Button
+            st.markdown("---")
+            if st.button("💾 Save AlgoTrader Configuration", type="primary"):
+                
+                # Configure the signal reader based on method
+                if signal_method == "File Monitor":
+                    file_path = st.session_state.connection_config["algotrader_signal_file"]
+                    if file_path:
+                        self.algotrader_reader.configure_file_monitor(
+                            file_path, 
+                            st.session_state.connection_config["algotrader_signal_format"],
+                            polling_interval
+                        )
+                        st.success(f"✅ File monitor configured: {file_path}")
+                    else:
+                        st.error("❌ Please provide a signal file path")
+                        return
+                
+                elif signal_method == "TCP Socket":
+                    host = st.session_state.connection_config["algotrader_tcp_host"]
+                    port = st.session_state.connection_config["algotrader_tcp_port"]
+                    self.algotrader_reader.configure_tcp_socket(host, port)
+                    st.success(f"✅ TCP socket configured: {host}:{port}")
+                
+                elif signal_method == "HTTP API":
+                    url = st.session_state.connection_config["algotrader_http_url"]
+                    if url:
+                        headers = {}
+                        if api_key:
+                            headers["X-API-Key"] = api_key
+                        if auth_header:
+                            headers["Authorization"] = auth_header
+                        
+                        self.algotrader_reader.configure_http_api(url, headers)
+                        st.success(f"✅ HTTP API configured: {url}")
+                    else:
+                        st.error("❌ Please provide an API endpoint URL")
+                        return
+                
+                # Set signal filters
+                self.algotrader_reader.signal_filters.update({
+                    "min_confidence": st.session_state.connection_config["algotrader_min_confidence"],
+                    "allowed_instruments": allowed_instruments,
+                    "signal_types": allowed_signal_types
+                })
+                
+                st.success("🎯 Signal filters configured")
+                
+                # Start monitoring if not already active
+                if not self.algotrader_reader.is_monitoring:
+                    self.algotrader_reader.start_monitoring()
+                    st.success("🚀 AlgoTrader signal monitoring started!")
+                
+                time.sleep(2)
+                st.rerun()
+        
+        else:
+            st.info("Enable AlgoTrader Signal Reading to configure signal input methods.")
+        
+        # Signal Status Display
+        if st.session_state.connection_config["algotrader_enabled"]:
+            st.markdown("---")
+            self.render_algotrader_status()
+    
+    def render_algotrader_status(self):
+        """Display AlgoTrader signal reading status"""
+        st.markdown("#### 📊 AlgoTrader Signal Status")
+        
+        # Get signal statistics
+        stats = self.algotrader_reader.get_signal_statistics()
+        
+        if stats:
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                st.metric("Total Signals", stats.get("total_signals", 0))
+            
+            with col2:
+                monitoring_status = "🟢 Active" if stats.get("monitoring_active", False) else "🔴 Inactive"
+                st.metric("Monitoring", monitoring_status)
+            
+            with col3:
+                last_signal = stats.get("last_signal_time")
+                if last_signal:
+                    time_diff = datetime.now() - last_signal
+                    if time_diff.total_seconds() < 60:
+                        last_signal_str = "Just now"
+                    elif time_diff.total_seconds() < 3600:
+                        last_signal_str = f"{int(time_diff.total_seconds() / 60)}m ago"
+                    else:
+                        last_signal_str = f"{int(time_diff.total_seconds() / 3600)}h ago"
+                else:
+                    last_signal_str = "Never"
+                st.metric("Last Signal", last_signal_str)
+            
+            with col4:
+                if st.button("🔄 Refresh Status"):
+                    st.rerun()
+            
+            # Recent signals display
+            recent_signals = self.algotrader_reader.get_latest_signals(5)
+            if recent_signals:
+                st.markdown("**Recent Signals:**")
+                signal_df = pd.DataFrame(recent_signals)
+                st.dataframe(signal_df[['timestamp', 'instrument', 'signal_type', 'price', 'confidence']], use_container_width=True)
+            
+            # Control buttons
+            control_col1, control_col2, control_col3 = st.columns(3)
+            
+            with control_col1:
+                if stats.get("monitoring_active", False):
+                    if st.button("⏸️ Stop Monitoring"):
+                        self.algotrader_reader.stop_monitoring()
+                        st.success("Monitoring stopped")
+                        st.rerun()
+                else:
+                    if st.button("▶️ Start Monitoring"):
+                        self.algotrader_reader.start_monitoring()
+                        st.success("Monitoring started")
+                        st.rerun()
+            
+            with control_col2:
+                if st.button("🗑️ Clear Buffer"):
+                    self.algotrader_reader.clear_signal_buffer()
+                    st.success("Signal buffer cleared")
+                    st.rerun()
+            
+            with control_col3:
+                if st.button("📋 Show All Signals"):
+                    st.session_state.show_all_signals = True
+        
+        else:
+            st.info("No signal data available. Start monitoring to see signal statistics.")
+
     def render_tradovate_setup(self):
         """Render Tradovate connection setup"""
         st.subheader("📈 Tradovate Configuration")
@@ -2534,6 +3536,20 @@ class TrainingWheelsDashboard:
         try:
             current_time = datetime.now()
             
+            # Process AlgoTrader signals if enabled
+            if st.session_state.connection_config.get("algotrader_enabled", False):
+                if self.algotrader_reader.is_monitoring:
+                    # Check for new signals
+                    self.algotrader_reader._start_file_monitor()  # Monitor file changes
+                    
+                    # Get latest signals and apply to charts
+                    recent_signals = self.algotrader_reader.get_latest_signals(10)
+                    
+                    for signal in recent_signals:
+                        if signal.get("processed_time", datetime.min) > current_time - timedelta(seconds=30):
+                            # Process signals from last 30 seconds
+                            self.apply_algotrader_signal_to_chart(signal)
+            
             # Update NinjaTrader data if connected
             if self.ninja_connector.is_connected:
                 nt_account_info = self.ninja_connector.get_account_info()
@@ -2566,6 +3582,60 @@ class TrainingWheelsDashboard:
         except Exception as e:
             self.logger.error(f"Error refreshing real-time data: {e}")
     
+    def apply_algotrader_signal_to_chart(self, signal: Dict[str, Any]):
+        """Apply AlgoTrader signal to appropriate chart"""
+        try:
+            instrument = signal.get("instrument", "")
+            signal_type = signal.get("signal_type", "")
+            price = signal.get("price", 0)
+            confidence = signal.get("confidence", 0.8)
+            
+            # Find matching chart by instrument
+            target_chart = None
+            for chart_id, chart in st.session_state.charts.items():
+                if instrument in chart.instruments:
+                    target_chart = chart
+                    break
+            
+            if target_chart:
+                # Update chart with AlgoTrader signal
+                target_chart.last_signal = f"AlgoTrader {signal_type}"
+                target_chart.signal_color = "green" if signal_type in ["BUY", "LONG"] else "red" if signal_type in ["SELL", "SHORT"] else "neutral"
+                target_chart.entry_price = price
+                target_chart.last_update = datetime.now()
+                
+                # Create Enigma Signal for ERM processing
+                enigma_signal = EnigmaSignal(
+                    signal_type=signal_type,
+                    entry_price=price,
+                    signal_time=datetime.now(),
+                    is_active=True,
+                    confidence=confidence
+                )
+                
+                target_chart.current_enigma_signal = enigma_signal
+                st.session_state.active_enigma_signals[target_chart.chart_id] = enigma_signal
+                
+                # Send notification for new AlgoTrader signal
+                self.notification_manager.send_new_signal_alert(
+                    chart_id=target_chart.chart_id,
+                    signal_type=signal_type,
+                    chart_name=target_chart.account_name,
+                    confidence=confidence
+                )
+                
+                # Trigger ERM calculation if enabled
+                if st.session_state.erm_settings.get("enabled", False):
+                    erm_calc = self.calculate_erm(target_chart.chart_id, price)
+                    if erm_calc and erm_calc.is_reversal_triggered:
+                        target_chart.confluence_level = "High"
+                        target_chart.power_score = min(100, target_chart.power_score + 10)
+                
+                self.logger.info(f"Applied AlgoTrader signal to Chart {target_chart.chart_id}: {instrument} {signal_type} @ {price}")
+            
+        except Exception as e:
+            self.logger.error(f"Error applying AlgoTrader signal: {e}")
+    
     def render_connection_setup_modal(self):
         """Render comprehensive connection setup interface"""
         st.markdown("---")
@@ -2573,7 +3643,7 @@ class TrainingWheelsDashboard:
         st.markdown("Configure your NinjaTrader and Tradovate connections")
         
         # Tabs for different connection types
-        tab1, tab2, tab3 = st.tabs(["NinjaTrader Setup", "Tradovate Setup", "Test Connections"])
+        tab1, tab2, tab3, tab4 = st.tabs(["NinjaTrader Setup", "Tradovate Setup", "AlgoTrader Signals", "Test Connections"])
         
         with tab1:
             self.render_ninjatrader_setup()
@@ -2582,6 +3652,9 @@ class TrainingWheelsDashboard:
             self.render_tradovate_setup()
         
         with tab3:
+            self.render_algotrader_setup()
+        
+        with tab4:
             self.render_connection_testing()
         
         # Close button
