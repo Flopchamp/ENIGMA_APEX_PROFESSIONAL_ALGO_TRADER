@@ -1,15 +1,24 @@
 """
 TRAINING WHEELS FOR PROP FIRM TRADERS
-Advanced trading assistance system for prop firm traders
-- Multi-prop firm support (FTMO, MyForexFunds, The5ers, etc.)
-- ERM (Enigma Reversal Momentum) Signal Detection
-- NinjaTrader + Tradovate Integration
+Professional trading enhancement system for prop firm traders
+
+Michael Canfield's First Principal Enhancement System:
+- Help new traders find the best single trade algo (like Enigma)
+- Apply our system to enhance their trading skills and platform
+- Multi-prop firm support with expandable dropdown selection
+- ERM (Enigma Reversal Momentum) Signal Detection with rapid failure detection
+- NinjaTrader + Tradovate + AlgoTrader Integration
 - Real Connection Testing (Demo/Test/Live modes)
 - Multi-account futures trading management
 - OCR signal reading capabilities
 - Professional margin monitoring
 - Emergency stop protection
-- First Principal algo enhancement system
+- Advanced Kelly Criterion position sizing
+
+Core Philosophy:
+1. Identify the trader's "First Principal" (best single algo)
+2. Enhance that algo with our professional tools
+3. Scale across multiple prop firms seamlessly
 """
 
 import streamlit as st
@@ -1315,7 +1324,7 @@ class TrainingWheelsDashboard:
     def setup_page_config(self):
         """Configure Streamlit page settings"""
         st.set_page_config(
-            page_title="Training Wheels - Professional Trading Dashboard",
+            page_title="Training Wheels for Prop Firm Traders - Professional Trading Dashboard",
             page_icon="🎯",
             layout="wide",
             initial_sidebar_state="expanded"
@@ -1634,15 +1643,19 @@ class TrainingWheelsDashboard:
         if 'selected_prop_firm' not in st.session_state:
             st.session_state.selected_prop_firm = "FTMO"
         
-        # ERM (Enigma Reversal Momentum) settings
+        # ERM (Enigma Reversal Momentum) settings - Michael Canfield's specifications
         if 'erm_settings' not in st.session_state:
             st.session_state.erm_settings = {
                 "enabled": False,
                 "lookback_periods": 10,
-                "atr_multiplier": 2.0,
-                "min_time_elapsed": 300,  # seconds
-                "auto_reverse_trade": False,
-                "alert_sound": True
+                "lookback_seconds": 60,        # Michael's spec: 1-2 minute lookback
+                "atr_multiplier": 0.5,         # Michael's spec: 0.25-0.5 × ATR threshold
+                "min_time_elapsed": 30,        # Michael's spec: 30 seconds to 2 minutes minimum
+                "max_time_elapsed": 300,       # 5 minutes maximum for signal validity
+                "auto_reverse_trade": False,   # Auto-execute reversal trades
+                "alert_sound": True,
+                "rapid_detection": True,       # Enable rapid detection mode
+                "dynamic_threshold": True      # Use dynamic ATR-based thresholds
             }
         
         # Kelly Criterion settings
@@ -1653,6 +1666,19 @@ class TrainingWheelsDashboard:
                 "avg_win": 100.0,
                 "avg_loss": 80.0,
                 "max_position_percent": 0.25
+            }
+        
+        # First Principal Enhancement System - Michael Canfield's concept
+        if 'first_principal_settings' not in st.session_state:
+            st.session_state.first_principal_settings = {
+                "enabled": False,
+                "primary_algo": "Enigma",  # The trader's best single algo
+                "algo_confidence": 0.8,   # Confidence in the primary algo
+                "enhancement_mode": "Conservative",  # Conservative, Moderate, Aggressive
+                "backup_algos": [],       # Secondary algos for diversification
+                "performance_tracking": True,
+                "auto_optimization": False,
+                "risk_scaling": "Dynamic"  # Fixed, Dynamic, Adaptive
             }
         
         # Active Enigma signals tracking
@@ -1690,7 +1716,7 @@ class TrainingWheelsDashboard:
             st.session_state.show_notifications_modal = False
     
     def create_prop_firm_configs(self) -> Dict[str, PropFirmConfig]:
-        """Create prop firm configurations for different firms"""
+        """Create prop firm configurations for different firms - Expandable system"""
         return {
             "FTMO": PropFirmConfig(
                 firm_name="FTMO",
@@ -1735,6 +1761,83 @@ class TrainingWheelsDashboard:
                 risk_rules={"max_contracts": 5, "overnight_margin": 2.0},
                 evaluation_period=90,
                 profit_target=5000.0
+            ),
+            "Apex Trader Funding": PropFirmConfig(
+                firm_name="Apex Trader Funding",
+                max_daily_loss=3000.0,
+                max_position_size=8.0,
+                max_drawdown=6000.0,
+                leverage=75,
+                allowed_instruments=["ES", "NQ", "YM", "RTY", "CL", "GC"],
+                risk_rules={"max_contracts": 8, "news_trading": True},
+                evaluation_period=30,
+                profit_target=6000.0
+            ),
+            "Earn2Trade": PropFirmConfig(
+                firm_name="Earn2Trade",
+                max_daily_loss=2000.0,
+                max_position_size=6.0,
+                max_drawdown=4000.0,
+                leverage=50,
+                allowed_instruments=["ES", "NQ", "YM", "RTY"],
+                risk_rules={"max_contracts": 6, "scalping_allowed": True},
+                evaluation_period=15,
+                profit_target=4000.0
+            ),
+            "Leeloo Trading": PropFirmConfig(
+                firm_name="Leeloo Trading",
+                max_daily_loss=2500.0,
+                max_position_size=7.0,
+                max_drawdown=5000.0,
+                leverage=60,
+                allowed_instruments=["ES", "NQ", "YM", "RTY", "CL"],
+                risk_rules={"max_contracts": 7, "overnight_allowed": True},
+                evaluation_period=20,
+                profit_target=5000.0
+            ),
+            "Uprofit": PropFirmConfig(
+                firm_name="Uprofit",
+                max_daily_loss=3500.0,
+                max_position_size=9.0,
+                max_drawdown=7000.0,
+                leverage=80,
+                allowed_instruments=["ES", "NQ", "YM", "RTY", "CL", "GC", "EURUSD"],
+                risk_rules={"max_contracts": 9, "news_trading": True, "weekend_trading": False},
+                evaluation_period=30,
+                profit_target=7000.0
+            ),
+            "Fidelcrest": PropFirmConfig(
+                firm_name="Fidelcrest",
+                max_daily_loss=4500.0,
+                max_position_size=10.0,
+                max_drawdown=9000.0,
+                leverage=100,
+                allowed_instruments=["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "XAUUSD"],
+                risk_rules={"max_lot_size": 10, "news_trading": False, "ea_allowed": True},
+                evaluation_period=30,
+                profit_target=9000.0
+            ),
+            "Funded Next": PropFirmConfig(
+                firm_name="Funded Next",
+                max_daily_loss=3000.0,
+                max_position_size=8.0,
+                max_drawdown=6000.0,
+                leverage=100,
+                allowed_instruments=["EURUSD", "GBPUSD", "USDJPY", "XAUUSD", "ES", "NQ"],
+                risk_rules={"max_lot_size": 8, "consistency_rule": True},
+                evaluation_period=30,
+                profit_target=6000.0
+            ),
+            "Blue Guardian": PropFirmConfig(
+                firm_name="Blue Guardian",
+                max_daily_loss=2800.0,
+                max_position_size=7.0,
+                max_drawdown=5600.0,
+                leverage=90,
+                allowed_instruments=["ES", "NQ", "YM", "RTY", "EURUSD", "GBPUSD"],
+                risk_rules={"max_contracts": 7, "scaling_allowed": True},
+                evaluation_period=25,
+                profit_target=5600.0
             ),
             "Custom": PropFirmConfig(
                 firm_name="Custom",
@@ -1795,45 +1898,99 @@ class TrainingWheelsDashboard:
         """
         Calculate ERM (Enigma Reversal Momentum) for reversal detection
         
-        ERM Formula:
-        - Momentum Velocity = (Current Price - Entry Price) / Time Elapsed
-        - Price Distance = abs(Current Price - Entry Price) / ATR
-        - ERM Value = (Price Distance * Momentum Velocity) / ATR Multiplier
+        Michael Canfield's ERM Formula Implementation:
+        ERM = (P_current - E_price) × (P_current - P_n) / T_elapsed
+        
+        Where:
+        - P_current = Current market price after Enigma signal
+        - E_price = Enigma suggested entry price
+        - P_n = Price n periods ago (1-5 minutes ago)
+        - T_elapsed = Time elapsed in minutes
+        
+        Trigger Conditions:
+        - Long Failed (short entry): ERM > +Threshold
+        - Short Failed (long entry): ERM < -Threshold
+        - Threshold = 0.25-0.5 × ATR (short-term)
         """
         chart = st.session_state.charts.get(chart_id)
         if not chart or not chart.current_enigma_signal:
             return None
         
         signal = chart.current_enigma_signal
-        time_elapsed = (datetime.now() - signal.signal_time).total_seconds()
+        current_time = datetime.now()
+        time_elapsed = (current_time - signal.signal_time).total_seconds()
         
-        if time_elapsed < st.session_state.erm_settings["min_time_elapsed"]:
+        # Michael's requirement: minimum time elapsed (30 seconds to 2 minutes)
+        min_time_seconds = st.session_state.erm_settings.get("min_time_elapsed", 30)
+        if time_elapsed < min_time_seconds:
             return None
         
-        # Calculate components
-        price_distance = abs(current_price - signal.entry_price)
-        momentum_velocity = price_distance / time_elapsed if time_elapsed > 0 else 0
+        # Get historical price for momentum calculation
+        # Use price from n periods ago (default: 1-2 minutes ago)
+        lookback_seconds = st.session_state.erm_settings.get("lookback_seconds", 60)  # 1 minute lookback
         
-        # Estimate ATR for normalization
+        # Find price from lookback period ago
+        if len(chart.price_history) >= 2 and len(chart.time_history) >= 2:
+            # Find the closest historical price point
+            target_time = current_time - timedelta(seconds=lookback_seconds)
+            closest_index = 0
+            min_time_diff = float('inf')
+            
+            for i, hist_time in enumerate(chart.time_history):
+                time_diff = abs((hist_time - target_time).total_seconds())
+                if time_diff < min_time_diff:
+                    min_time_diff = time_diff
+                    closest_index = i
+            
+            price_n_periods_ago = chart.price_history[closest_index]
+        else:
+            # Fallback: use entry price if no history available
+            price_n_periods_ago = signal.entry_price
+        
+        # Michael's Exact ERM Formula Implementation
+        # ERM = (P_current - E_price) × (P_current - P_n) / T_elapsed
+        
+        p_current = current_price
+        e_price = signal.entry_price
+        p_n = price_n_periods_ago
+        t_elapsed_minutes = time_elapsed / 60.0  # Convert to minutes
+        
+        if t_elapsed_minutes == 0:
+            return None
+        
+        # Calculate momentum velocity: (P_current - P_n) / T_elapsed
+        momentum_velocity = (p_current - p_n) / t_elapsed_minutes
+        
+        # Calculate ERM value using Michael's formula
+        erm_value = (p_current - e_price) * momentum_velocity
+        
+        # Calculate dynamic threshold based on ATR
         atr = self.estimate_atr(chart_id)
         
-        if atr > 0:
-            normalized_distance = price_distance / atr
-            erm_value = (normalized_distance * momentum_velocity) / st.session_state.erm_settings["atr_multiplier"]
-        else:
-            erm_value = 0
+        # Michael's threshold: 0.25-0.5 × ATR (short-term)
+        atr_multiplier = st.session_state.erm_settings.get("atr_multiplier", 0.5)
+        threshold = atr_multiplier * atr
         
-        # Determine if reversal is triggered
-        threshold = st.session_state.erm_settings["atr_multiplier"]
-        is_reversal = erm_value > threshold
+        # Determine if reversal is triggered (Michael's logic)
+        is_reversal = False
+        reversal_direction = "NONE"
         
-        # Determine reversal direction
-        if signal.signal_type == "LONG" and is_reversal:
-            reversal_direction = "SHORT"
-        elif signal.signal_type == "SHORT" and is_reversal:
-            reversal_direction = "LONG"
-        else:
-            reversal_direction = "NONE"
+        if signal.signal_type in ["LONG", "BUY"]:
+            # For bullish Enigma signal that failed
+            # If ERM > +Threshold, trigger SHORT entry
+            if erm_value > threshold:
+                is_reversal = True
+                reversal_direction = "SHORT"
+        
+        elif signal.signal_type in ["SHORT", "SELL"]:
+            # For bearish Enigma signal that failed
+            # If ERM < -Threshold, trigger LONG entry
+            if erm_value < -threshold:
+                is_reversal = True
+                reversal_direction = "LONG"
+        
+        # Calculate price distance for reporting
+        price_distance = abs(p_current - e_price)
         
         erm_calc = ERMCalculation(
             erm_value=erm_value,
@@ -1968,8 +2125,8 @@ class TrainingWheelsDashboard:
             st.markdown(f'<div class="status-badge {mode_class}">{mode_text}</div>', unsafe_allow_html=True)
         
         with col2:
-            st.markdown('<h1 class="header-title">TRAINING WHEELS</h1>', unsafe_allow_html=True)
-            st.markdown('<h2 class="header-subtitle">FOR PROP FIRM TRADERS </h2>', unsafe_allow_html=True)
+            st.markdown('<h1 class="header-title">TRAINING WHEELS FOR PROP FIRM TRADERS</h1>', unsafe_allow_html=True)
+            st.markdown('<h2 class="header-subtitle">Professional Trading Enhancement System</h2>', unsafe_allow_html=True)
         
         with col3:
             # Real-time system status
@@ -2334,8 +2491,54 @@ class TrainingWheelsDashboard:
             st.subheader("🧠 ERM System")
             st.session_state.erm_settings["enabled"] = st.checkbox(
                 "Enable ERM Detection",
-                value=st.session_state.erm_settings["enabled"]
+                value=st.session_state.erm_settings["enabled"],
+                help="Michael Canfield's rapid reversal detection system"
             )
+            
+            if st.session_state.erm_settings["enabled"]:
+                st.session_state.erm_settings["rapid_detection"] = st.checkbox(
+                    "Rapid Detection Mode",
+                    value=st.session_state.erm_settings.get("rapid_detection", True),
+                    help="30 sec - 2 min detection window"
+                )
+                
+                st.session_state.erm_settings["atr_multiplier"] = st.slider(
+                    "ATR Threshold",
+                    min_value=0.25,
+                    max_value=1.0,
+                    value=st.session_state.erm_settings.get("atr_multiplier", 0.5),
+                    step=0.05,
+                    help="0.25-0.5 × ATR (Michael's specification)"
+                )
+            
+            st.markdown("---")
+            
+            # First Principal Settings
+            st.subheader("🎯 First Principal")
+            st.session_state.first_principal_settings["enabled"] = st.checkbox(
+                "Enable First Principal Enhancement",
+                value=st.session_state.first_principal_settings["enabled"],
+                help="Enhance your best single trading algorithm"
+            )
+            
+            if st.session_state.first_principal_settings["enabled"]:
+                st.session_state.first_principal_settings["primary_algo"] = st.selectbox(
+                    "Primary Algorithm",
+                    ["Enigma", "EMA Crossover", "RSI Divergence", "Support/Resistance", "Custom"],
+                    index=["Enigma", "EMA Crossover", "RSI Divergence", "Support/Resistance", "Custom"].index(
+                        st.session_state.first_principal_settings.get("primary_algo", "Enigma")
+                    ),
+                    help="Your best single trade algorithm"
+                )
+                
+                st.session_state.first_principal_settings["enhancement_mode"] = st.radio(
+                    "Enhancement Mode",
+                    ["Conservative", "Moderate", "Aggressive"],
+                    index=["Conservative", "Moderate", "Aggressive"].index(
+                        st.session_state.first_principal_settings.get("enhancement_mode", "Conservative")
+                    ),
+                    help="How aggressively to enhance your algorithm"
+                )
             
             st.markdown("---")
             
@@ -3938,12 +4141,13 @@ timestamp,instrument,signal_type,price,confidence
         st.markdown("---")
         selected_firm = st.session_state.get('selected_prop_firm', 'FTMO')
         trader_name = getattr(st.session_state.user_config, 'trader_name', 'Professional Trader')
-        st.markdown(f"🎯 **Training Wheels for Prop Firm Traders** | {trader_name} | {selected_firm} Challenge Dashboard")
+        first_principal = st.session_state.first_principal_settings.get('primary_algo', 'Enigma')
+        st.markdown(f"🎯 **Training Wheels for Prop Firm Traders** | {trader_name} | {selected_firm} Challenge | First Principal: {first_principal}")
         
         # Show ERM status in footer
         if st.session_state.erm_settings.get("enabled", False):
             active_signals = len([s for s in st.session_state.active_enigma_signals.values() if hasattr(s, 'is_active') and s.is_active])
-            st.markdown(f"🧠 **ERM System Active** - Monitoring {active_signals} Enigma Signals | First Principal Enhancement System")
+            st.markdown(f"🧠 **ERM System Active** - Monitoring {active_signals} Enigma Signals | Michael Canfield's Rapid Reversal Detection System")
 
 def main():
     """Main application entry point"""
