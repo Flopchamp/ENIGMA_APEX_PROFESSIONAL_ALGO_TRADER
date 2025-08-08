@@ -1,0 +1,364 @@
+{
+  "charts": {
+    "1": {
+      "chart_name": "ES-Account-1",
+      "chart_position": "top-left",
+      "power_score_region": [
+        60,
+        60,
+        130,
+        90
+      ],
+      "confluence_regions": {
+        "L1": [
+          150,
+          60,
+          180,
+          80
+        ],
+        "L2": [
+          150,
+          85,
+          180,
+          105
+        ],
+        "L3": [
+          150,
+          110,
+          180,
+          130
+        ],
+        "L4": [
+          150,
+          135,
+          180,
+          155
+        ]
+      },
+      "signal_color_region": [
+        200,
+        60,
+        270,
+        110
+      ],
+      "macvu_region": [
+        290,
+        60,
+        360,
+        90
+      ],
+      "atr_region": [
+        370,
+        60,
+        440,
+        90
+      ],
+      "full_panel_region": [
+        50,
+        50,
+        450,
+        350
+      ]
+    },
+    "2": {
+      "chart_name": "ES-Account-2",
+      "chart_position": "top-center",
+      "power_score_region": [
+        510,
+        60,
+        580,
+        90
+      ],
+      "confluence_regions": {
+        "L1": [
+          600,
+          60,
+          630,
+          80
+        ],
+        "L2": [
+          600,
+          85,
+          630,
+          105
+        ],
+        "L3": [
+          600,
+          110,
+          630,
+          130
+        ],
+        "L4": [
+          600,
+          135,
+          630,
+          155
+        ]
+      },
+      "signal_color_region": [
+        650,
+        60,
+        720,
+        110
+      ],
+      "macvu_region": [
+        740,
+        60,
+        810,
+        90
+      ],
+      "atr_region": [
+        820,
+        60,
+        890,
+        90
+      ],
+      "full_panel_region": [
+        500,
+        50,
+        900,
+        350
+      ]
+    },
+    "3": {
+      "chart_name": "NQ-Account-1",
+      "chart_position": "top-right",
+      "power_score_region": [
+        960,
+        60,
+        1030,
+        90
+      ],
+      "confluence_regions": {
+        "L1": [
+          1050,
+          60,
+          1080,
+          80
+        ],
+        "L2": [
+          1050,
+          85,
+          1080,
+          105
+        ],
+        "L3": [
+          1050,
+          110,
+          1080,
+          130
+        ],
+        "L4": [
+          1050,
+          135,
+          1080,
+          155
+        ]
+      },
+      "signal_color_region": [
+        1100,
+        60,
+        1170,
+        110
+      ],
+      "macvu_region": [
+        1190,
+        60,
+        1260,
+        90
+      ],
+      "atr_region": [
+        1270,
+        60,
+        1340,
+        90
+      ],
+      "full_panel_region": [
+        950,
+        50,
+        1350,
+        350
+      ]
+    },
+    "4": {
+      "chart_name": "NQ-Account-2",
+      "chart_position": "bottom-left",
+      "power_score_region": [
+        60,
+        410,
+        130,
+        440
+      ],
+      "confluence_regions": {
+        "L1": [
+          150,
+          410,
+          180,
+          430
+        ],
+        "L2": [
+          150,
+          435,
+          180,
+          455
+        ],
+        "L3": [
+          150,
+          460,
+          180,
+          480
+        ],
+        "L4": [
+          150,
+          485,
+          180,
+          505
+        ]
+      },
+      "signal_color_region": [
+        200,
+        410,
+        270,
+        460
+      ],
+      "macvu_region": [
+        290,
+        410,
+        360,
+        440
+      ],
+      "atr_region": [
+        370,
+        410,
+        440,
+        440
+      ],
+      "full_panel_region": [
+        50,
+        400,
+        450,
+        700
+      ]
+    },
+    "5": {
+      "chart_name": "YM-Account-1",
+      "chart_position": "bottom-center",
+      "power_score_region": [
+        510,
+        410,
+        580,
+        440
+      ],
+      "confluence_regions": {
+        "L1": [
+          600,
+          410,
+          630,
+          430
+        ],
+        "L2": [
+          600,
+          435,
+          630,
+          455
+        ],
+        "L3": [
+          600,
+          460,
+          630,
+          480
+        ],
+        "L4": [
+          600,
+          485,
+          630,
+          505
+        ]
+      },
+      "signal_color_region": [
+        650,
+        410,
+        720,
+        460
+      ],
+      "macvu_region": [
+        740,
+        410,
+        810,
+        440
+      ],
+      "atr_region": [
+        820,
+        410,
+        890,
+        440
+      ],
+      "full_panel_region": [
+        500,
+        400,
+        900,
+        700
+      ]
+    },
+    "6": {
+      "chart_name": "RTY-Account-1",
+      "chart_position": "bottom-right",
+      "power_score_region": [
+        960,
+        410,
+        1030,
+        440
+      ],
+      "confluence_regions": {
+        "L1": [
+          1050,
+          410,
+          1080,
+          430
+        ],
+        "L2": [
+          1050,
+          435,
+          1080,
+          455
+        ],
+        "L3": [
+          1050,
+          460,
+          1080,
+          480
+        ],
+        "L4": [
+          1050,
+          485,
+          1080,
+          505
+        ]
+      },
+      "signal_color_region": [
+        1100,
+        410,
+        1170,
+        460
+      ],
+      "macvu_region": [
+        1190,
+        410,
+        1260,
+        440
+      ],
+      "atr_region": [
+        1270,
+        410,
+        1340,
+        440
+      ],
+      "full_panel_region": [
+        950,
+        400,
+        1350,
+        700
+      ]
+    }
+  }
+}

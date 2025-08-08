@@ -1,33 +1,41 @@
-# ENIGMA-APEX TRADING SYSTEM
-## Professional Algorithmic Prop Trading Solution
+# 🎯 UNIVERSAL 6-CHART TRADING SYSTEM
+## Professional Multi-Dashboard Trading Control Panel - PRODUCTION READY
 
-### 🚀 QUICK START (For Immediate Testing)
+### 🚀 QUICK START (PRODUCTION DEPLOYMENT)
 
-**FOR EXPERIENCED TRADERS:**
-1. Run `INSTALL.bat` as Administrator
-2. Launch with `Start_Enigma_Apex.bat`
-3. Configure NinjaTrader (see User Manual)
+**PRODUCTION LAUNCH:**
+```bash
+python launch_production.py
+```
+
+**ALTERNATIVE LAUNCHERS:**
+- Harrison's Enhanced Dashboard: `python launch_harrison.py`
+- NinjaTrader Integration: `python launch_ninjatrader.py`
+- Universal Dashboard: `python app.py` or `streamlit run app.py`
 
 **FOR NEW USERS:**
-1. Start with `documentation/ENIGMA_APEX_SENIORS_GUIDE.md`
-2. Follow `documentation/ENIGMA_APEX_VISUAL_SETUP_GUIDE.md`
-3. Keep `documentation/ENIGMA_APEX_QUICK_REFERENCE.md` handy
+1. Read `SETUP_GUIDE.md` for step-by-step instructions
+2. Start with Demo mode for safe testing
+3. Test connections before live trading
 
 ---
 
-## 📁 PACKAGE CONTENTS
+## 🏗️ SYSTEM ARCHITECTURE
+
+### 🖥️ Multiple Dashboard Options
+- **Universal 6-Chart Dashboard** - Works with any setup
+- **Harrison's Enhanced Dashboard** - Original clean interface with enhanced features
+- **NinjaTrader + Tradovate Dashboard** - Professional futures trading interface
+- **System Integration Panel** - OCR and automation controls
+- **Analytics & Settings** - Performance monitoring and configuration
+
+### 📁 PACKAGE CONTENTS
 
 ### Essential System Files (`system/`)
-- `ENIGMA_APEX_COMPLETE_SYSTEM.py` - Main trading engine
-- `apex_compliance_guardian.py` - Prop firm rule enforcement
-- `advanced_risk_manager.py` - Kelly Criterion position sizing
-- `chatgpt_agent_integration.py` - AI trading recommendations
-- `ocr_enigma_reader.py` - AlgoBox signal automation
-- `enhanced_websocket_server.py` - Real-time data server
-- `manual_signal_interface.py` - Manual signal entry
-
-### Complete Documentation (`documentation/`)
-- `ENIGMA_APEX_USER_MANUAL.md` - Complete 15,000+ word manual
+- `streamlit_6_chart_dashboard.py` - Universal trading dashboard
+- `harrison_enhanced_dashboard.py` - Harrison's original enhanced interface
+- `ninjatrader_tradovate_dashboard.py` - Professional NinjaTrader integration
+- `streamlit_system_integration.py` - OCR and automation systems
 - `ENIGMA_APEX_QUICK_REFERENCE.md` - Emergency procedures
 - `ENIGMA_APEX_VISUAL_SETUP_GUIDE.md` - Step-by-step screenshots
 - `ENIGMA_APEX_SENIORS_GUIDE.md` - Technology guide for 50+ traders
