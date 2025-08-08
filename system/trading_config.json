@@ -1,0 +1,98 @@
+{
+    "ninjatrader": {
+        "ati_port": 36973,
+        "host": "localhost",
+        "enabled": true,
+        "charts": {
+            "ES": {
+                "symbol": "ES",
+                "name": "S&P 500 E-mini",
+                "account": "ES_SCALPING",
+                "timeframe": "5min"
+            },
+            "NQ": {
+                "symbol": "NQ",
+                "name": "Nasdaq E-mini",
+                "account": "NQ_MOMENTUM",
+                "timeframe": "5min"
+            },
+            "YM": {
+                "symbol": "YM",
+                "name": "Dow Jones E-mini",
+                "account": "YM_SWING",
+                "timeframe": "5min"
+            },
+            "RTY": {
+                "symbol": "RTY",
+                "name": "Russell 2000 E-mini",
+                "account": "RTY_BREAKOUT",
+                "timeframe": "5min"
+            },
+            "GC": {
+                "symbol": "GC",
+                "name": "Gold Futures",
+                "account": "GC_TREND",
+                "timeframe": "15min"
+            },
+            "CL": {
+                "symbol": "CL",
+                "name": "Crude Oil Futures",
+                "account": "CL_INTRADAY",
+                "timeframe": "15min"
+            }
+        },
+        "layout": "3x2",
+        "algobox_ready": true
+    },
+    "accounts": {
+        "ES_SCALPING": {
+            "name": "ES_SCALPING",
+            "symbol": "ES",
+            "size": 15000,
+            "risk": 2.0,
+            "max_contracts": 2
+        },
+        "NQ_MOMENTUM": {
+            "name": "NQ_MOMENTUM",
+            "symbol": "NQ",
+            "size": 12000,
+            "risk": 2.5,
+            "max_contracts": 1
+        },
+        "YM_SWING": {
+            "name": "YM_SWING",
+            "symbol": "YM",
+            "size": 10000,
+            "risk": 3.0,
+            "max_contracts": 1
+        },
+        "RTY_BREAKOUT": {
+            "name": "RTY_BREAKOUT",
+            "symbol": "RTY",
+            "size": 8000,
+            "risk": 2.5,
+            "max_contracts": 2
+        },
+        "GC_TREND": {
+            "name": "GC_TREND",
+            "symbol": "GC",
+            "size": 7000,
+            "risk": 2.0,
+            "max_contracts": 1
+        },
+        "CL_INTRADAY": {
+            "name": "CL_INTRADAY",
+            "symbol": "CL",
+            "size": 8000,
+            "risk": 2.5,
+            "max_contracts": 1
+        }
+    },
+    "connection": {
+        "ninjatrader_port": 36973,
+        "ninjatrader_host": "localhost",
+        "server_host": "155.138.229.220",
+        "server_port": 8080,
+        "websocket_port": 8081
+    }
+}

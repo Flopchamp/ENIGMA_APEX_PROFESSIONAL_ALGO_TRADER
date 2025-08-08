@@ -1,0 +1,7 @@
+{
+    "ati_port": 36973,
+    "host": "localhost",
+    "enabled": true,
+    "charts": ["ES", "NQ", "YM", "RTY", "GC", "CL"],
+    "layout": "3x2"
+}

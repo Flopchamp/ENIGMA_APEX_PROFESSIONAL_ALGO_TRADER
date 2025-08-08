@@ -1,0 +1,195 @@
+{
+  "chart_configs": {
+    "layout": {
+      "type": "3x2",
+      "auto_arrange": true,
+      "sync_enabled": true,
+      "real_time_updates": true
+    },
+    "charts": [
+      {
+        "id": "chart_1",
+        "symbol": "ES",
+        "name": "S&P 500 E-mini",
+        "timeframe": "5min",
+        "position": [
+          0,
+          0
+        ],
+        "account": "ES_SCALPING",
+        "color_theme": "professional_blue",
+        "indicators": [
+          "PowerScore",
+          "RiskManager",
+          "SignalGen"
+        ],
+        "alerts_enabled": true
+      },
+      {
+        "id": "chart_2",
+        "symbol": "NQ",
+        "name": "Nasdaq E-mini",
+        "timeframe": "5min",
+        "position": [
+          0,
+          1
+        ],
+        "account": "NQ_MOMENTUM",
+        "color_theme": "professional_blue",
+        "indicators": [
+          "PowerScore",
+          "RiskManager",
+          "SignalGen"
+        ],
+        "alerts_enabled": true
+      },
+      {
+        "id": "chart_3",
+        "symbol": "YM",
+        "name": "Dow Jones E-mini",
+        "timeframe": "5min",
+        "position": [
+          0,
+          2
+        ],
+        "account": "YM_SWING",
+        "color_theme": "professional_blue",
+        "indicators": [
+          "PowerScore",
+          "RiskManager",
+          "SignalGen"
+        ],
+        "alerts_enabled": true
+      },
+      {
+        "id": "chart_4",
+        "symbol": "RTY",
+        "name": "Russell 2000 E-mini",
+        "timeframe": "5min",
+        "position": [
+          1,
+          0
+        ],
+        "account": "RTY_BREAKOUT",
+        "color_theme": "professional_blue",
+        "indicators": [
+          "PowerScore",
+          "RiskManager",
+          "SignalGen"
+        ],
+        "alerts_enabled": true
+      },
+      {
+        "id": "chart_5",
+        "symbol": "GC",
+        "name": "Gold Futures",
+        "timeframe": "15min",
+        "position": [
+          1,
+          1
+        ],
+        "account": "GC_TREND",
+        "color_theme": "professional_gold",
+        "indicators": [
+          "PowerScore",
+          "RiskManager",
+          "TrendFollower"
+        ],
+        "alerts_enabled": true
+      },
+      {
+        "id": "chart_6",
+        "symbol": "CL",
+        "name": "Crude Oil Futures",
+        "timeframe": "15min",
+        "position": [
+          1,
+          2
+        ],
+        "account": "CL_INTRADAY",
+        "color_theme": "professional_orange",
+        "indicators": [
+          "PowerScore",
+          "RiskManager",
+          "IntradaySignals"
+        ],
+        "alerts_enabled": true
+      }
+    ]
+  },
+  "account_settings": {
+    "ES_SCALPING": {
+      "name": "ES_SCALPING",
+      "symbol": "ES",
+      "account_size": 15000,
+      "risk_percent": 2.0,
+      "max_contracts": 2,
+      "strategy": "scalping",
+      "stop_loss_points": 8,
+      "take_profit_points": 12,
+      "trading_hours": "09:30-16:00",
+      "risk_reward_ratio": 1.5
+    },
+    "NQ_MOMENTUM": {
+      "name": "NQ_MOMENTUM",
+      "symbol": "NQ",
+      "account_size": 12000,
+      "risk_percent": 2.5,
+      "max_contracts": 1,
+      "strategy": "momentum",
+      "stop_loss_points": 25,
+      "take_profit_points": 50,
+      "trading_hours": "09:30-16:00",
+      "risk_reward_ratio": 2.0
+    },
+    "YM_SWING": {
+      "name": "YM_SWING",
+      "symbol": "YM",
+      "account_size": 10000,
+      "risk_percent": 3.0,
+      "max_contracts": 1,
+      "strategy": "swing",
+      "stop_loss_points": 150,
+      "take_profit_points": 300,
+      "trading_hours": "09:30-16:00",
+      "risk_reward_ratio": 2.0
+    },
+    "RTY_BREAKOUT": {
+      "name": "RTY_BREAKOUT",
+      "symbol": "RTY",
+      "account_size": 8000,
+      "risk_percent": 2.5,
+      "max_contracts": 2,
+      "strategy": "breakout",
+      "stop_loss_points": 15,
+      "take_profit_points": 30,
+      "trading_hours": "09:30-16:00",
+      "risk_reward_ratio": 2.0
+    },
+    "GC_TREND": {
+      "name": "GC_TREND",
+      "symbol": "GC",
+      "account_size": 7000,
+      "risk_percent": 2.0,
+      "max_contracts": 1,
+      "strategy": "trend_following",
+      "stop_loss_points": 8,
+      "take_profit_points": 16,
+      "trading_hours": "08:00-17:00",
+      "risk_reward_ratio": 2.0
+    },
+    "CL_INTRADAY": {
+      "name": "CL_INTRADAY",
+      "symbol": "CL",
+      "account_size": 8000,
+      "risk_percent": 2.5,
+      "max_contracts": 1,
+      "strategy": "intraday",
+      "stop_loss_points": 0.5,
+      "take_profit_points": 1.0,
+      "trading_hours": "09:00-14:30",
+      "risk_reward_ratio": 2.0
+    }
+  },
+  "export_timestamp": "2025-08-07T17:33:47.311293"
+}

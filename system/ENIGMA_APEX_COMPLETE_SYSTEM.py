@@ -6,7 +6,27 @@ Professional Algorithmic Trading Platform
 FOR: Michael Canfield - Complete System Demonstration
 
 SYSTEM STATUS: PRODUCTION READY ✅
-COMPLETION: 99% - Ready for Live Trading
+COMPLETION: 99% - Ready for L                      print("   ✅ OCR Screen Reader started")
+            print("   📺 Monitoring Michael's 6-chart AlgoBox setup")
+            print("   🔍 Charts: ES, NQ, YM, RTY, GC, CL")
+            print("   ⚡ Real-time Enigma signal detection")
+            print("   🎯 Color detection: Green=BUY, Red=SELL, Yellow=CAUTION")
+            return True
+        except Exception as e:
+            print(f"   ❌ Failed to start OCR reader: {e}")
+            return False
+            
+    def start_websocket_server(self):("   ✅ OCR Screen Reader started")
+            print("   📺 Monitoring Michael's 6-chart AlgoBox setup")
+            print("   🔍 Charts: ES, NQ, YM, RTY, GC, CL")
+            print("   ⚡ Real-time Enigma signal detection")
+            print("   🎯 Color detection: Green=BUY, Red=SELL, Yellow=CAUTION")
+            return True
+        except Exception as e:
+            print(f"   ❌ Failed to start OCR reader: {e}")
+            return False
+            
+    def start_websocket_server(self):ding
 
 This executable demonstrates the complete Enigma-Apex trading system
 with all components running in production mode.
@@ -49,55 +69,55 @@ class EnigmaApexSystem:
     def print_system_components(self):
         """Display all system components and their status"""
         components = {
-            "1. CHATGPT AI AGENT": {
-                "file": "apex_guardian_agent.py",
+            "1. MICHAEL'S CONTROL PANEL": {
+                "file": "michael_control_panel.py",
                 "status": "✅ READY",
-                "description": "First principles market analysis with AI reasoning"
+                "description": "Red/Green/Yellow decision boxes for 6 charts (First Principles)"
             },
             "2. OCR ENIGMA READER": {
                 "file": "ocr_enigma_reader.py", 
                 "status": "✅ READY",
-                "description": "Automated AlgoBox signal detection and reading"
+                "description": "Real-time AlgoBox signal detection from your 6-chart setup"
             },
-            "3. TRADING DASHBOARD": {
-                "file": "trading_dashboard.py",
+            "3. CHATGPT AI WITH KELLY ENGINE": {
+                "file": "chatgpt_agent_integration.py",
                 "status": "✅ READY", 
-                "description": "Professional interface with TradingView integration"
+                "description": "AI reasoning + Kelly Criterion position sizing"
             },
-            "4. RISK MANAGER": {
+            "4. ADVANCED RISK MANAGER": {
                 "file": "advanced_risk_manager.py",
                 "status": "✅ READY",
-                "description": "Apex compliance and Kelly Criterion sizing"
+                "description": "Apex compliance and drawdown protection"
             },
             "5. NINJASCRIPT INTEGRATION": {
                 "file": "NinjaTrader_Integration/",
                 "status": "✅ READY",
-                "description": "Complete NinjaTrader 8 indicators and strategies"
+                "description": "NinjaTrader 8 indicators/strategies (Port 36973)"
             },
             "6. WEBSOCKET SERVER": {
                 "file": "enhanced_websocket_server.py",
                 "status": "✅ READY",
-                "description": "Real-time communication and data streaming"
+                "description": "Real-time communication backbone"
             },
-            "7. DATABASE ANALYTICS": {
-                "file": "enhanced_database_manager.py",
+            "7. MANUAL SIGNAL INTERFACE": {
+                "file": "manual_signal_interface.py",
                 "status": "✅ READY",
-                "description": "Performance tracking and trade history"
+                "description": "Backup manual signal input system"
             },
-            "8. DESKTOP NOTIFICATIONS": {
-                "file": "desktop_notifier.py",
+            "8. APEX COMPLIANCE GUARDIAN": {
+                "file": "apex_compliance_guardian.py",
                 "status": "✅ READY",
-                "description": "Real-time alerts and system notifications"
+                "description": "Prop firm rules enforcement and monitoring"
             },
-            "9. KELLY CRITERION ENGINE": {
-                "file": "ai_signal_enhancer.py",
+            "9. SCREEN REGION MAPPER": {
+                "file": "algobox_screen_reader.py",
                 "status": "✅ READY",
-                "description": "Mathematical position sizing optimization"
+                "description": "Your 6-chart layout region detection"
             },
-            "10. MARKET DATA PROVIDER": {
-                "file": "live_market_data_provider.py",
+            "10. FIRST PRINCIPLES TRADER": {
+                "file": "first_principles_trader.py",
                 "status": "✅ READY",
-                "description": "Real-time E-mini S&P 500 data integration"
+                "description": "Core trading logic: Drawdown + Enigma probability"
             }
         }
         
@@ -224,58 +244,80 @@ class EnigmaApexSystem:
             return False
             
     def start_dashboard(self):
-        """Start the trading dashboard"""
-        print("\n🌐 STARTING TRADING DASHBOARD...")
+        """Start Michael's control panel with Red/Green/Yellow boxes"""
+        print("\n🌐 STARTING MICHAEL'S CONTROL PANEL...")
         print("-" * 50)
         try:
-            # Start dashboard in background
+            # Start Michael's control panel instead of generic dashboard
             dashboard_process = subprocess.Popen([
-                sys.executable, "trading_dashboard.py"
+                sys.executable, "../michael_control_panel.py"
             ], cwd=self.base_path,
                stdout=subprocess.PIPE,
                stderr=subprocess.PIPE)
             
-            self.running_processes.append(("Trading Dashboard", dashboard_process))
+            self.running_processes.append(("Michael's Control Panel", dashboard_process))
             
-            print("   ✅ Dashboard server starting...")
-            print("   🌐 Dashboard will be available at: http://localhost:5000")
-            print("   📊 TradingView charts with live E-mini S&P 500 data")
-            print("   📈 Real-time signal monitoring and Kelly Criterion calculations")
+            print("   ✅ Michael's Control Panel starting...")
+            print("   🔴🟢🟡 Red/Green/Yellow decision boxes")
+            print("   📊 6-Chart AlgoBox integration (ES, NQ, YM, RTY, GC, CL)")
+            print("   🎯 First principles: Drawdown + Enigma probability only")
+            print("   🌐 Dashboard will be available at: http://localhost:8501")
             
             # Wait a moment then try to open browser
             time.sleep(3)
             try:
-                webbrowser.open("http://localhost:5000")
+                webbrowser.open("http://localhost:8501")
                 print("   🌐 Browser opened automatically")
             except:
-                print("   💡 Please manually open: http://localhost:5000")
+                print("   💡 Please manually open: http://localhost:8501")
                 
             return True
         except Exception as e:
-            print(f"   ❌ Failed to start dashboard: {str(e)}")
+            print(f"   ❌ Failed to start control panel: {str(e)}")
             return False
             
     def start_ai_agent(self):
-        """Start the ChatGPT AI agent"""
-        print("\n🤖 STARTING CHATGPT AI AGENT...")
+        """Start the ChatGPT AI agent with Kelly engine"""
+        print("\n🤖 STARTING CHATGPT AI AGENT WITH KELLY ENGINE...")
         print("-" * 50)
         try:
+            # Start ChatGPT integration
             ai_process = subprocess.Popen([
-                sys.executable, "apex_guardian_agent.py"
+                sys.executable, "chatgpt_agent_integration.py"
             ], cwd=self.base_path,
                stdout=subprocess.PIPE,
                stderr=subprocess.PIPE)
             
             self.running_processes.append(("ChatGPT AI Agent", ai_process))
             
-            print("   ✅ ChatGPT AI Agent started")
+            print("   ✅ ChatGPT AI Agent with Kelly engine started")
             print("   🧠 First principles market analysis active")
-            print("   📊 Kelly Criterion optimization enabled")
-            print("   🔒 Risk assessment and validation online")
+            print("   📊 Kelly Criterion position sizing optimization")
+            print("   🔒 Risk assessment and Apex compliance validation")
+            print("   💰 Dynamic position sizing based on drawdown")
             return True
         except Exception as e:
             print(f"   ❌ Failed to start AI agent: {str(e)}")
             return False
+            
+    def start_ocr_screen_reader(self):
+        """Start OCR screen reader for Michael's 6-chart setup"""
+        print("\n�️ STARTING OCR SCREEN READER FOR 6-CHART SETUP...")
+        print("-" * 50)
+        try:
+            ocr_process = subprocess.Popen([
+                sys.executable, "michael_ocr_reader.py"
+            ], cwd=self.base_path,
+               stdout=subprocess.PIPE,
+               stderr=subprocess.PIPE)
+            
+            self.running_processes.append(("OCR Screen Reader", ocr_process))
+            
+            print("   ✅ OCR Screen Reader started")
+            print("   � Monitoring Michael's 6-chart AlgoBox setup")
+            print("   🔍 Charts: ES, NQ, YM, RTY, GC, CL")
+            print("   ⚡ Real-time Enigma signal detection")
+            print("   🎯 Color detection: Green=BUY, Red=SELL, Yellow=CAUTION")
             
     def start_websocket_server(self):
         """Start the WebSocket server"""
@@ -373,18 +415,22 @@ class EnigmaApexSystem:
         self.display_ninjascript_info()
         
         # Start core components
-        print("\n🚀 STARTING CORE SYSTEM COMPONENTS...")
+        print("\n🚀 STARTING ALL SYSTEM COMPONENTS (KELLY ENGINE, OCR, EVERYTHING)...")
         print("=" * 80)
         
-        # Start WebSocket server first
+        # Start WebSocket server first (communication backbone)
         self.start_websocket_server()
         time.sleep(2)
         
-        # Start AI agent
+        # Start OCR Screen Reader for 6-chart monitoring
+        self.start_ocr_screen_reader()
+        time.sleep(2)
+        
+        # Start AI agent with Kelly engine
         self.start_ai_agent()
         time.sleep(2)
         
-        # Start dashboard (this will open browser)
+        # Start Michael's control panel with Red/Green/Yellow boxes
         self.start_dashboard()
         time.sleep(3)
         

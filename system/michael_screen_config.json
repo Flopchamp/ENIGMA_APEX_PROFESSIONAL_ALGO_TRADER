@@ -1,0 +1,143 @@
+{
+  "screen_config": {
+    "description": "Michael's 6-Chart AlgoBox Setup - Exact Screen Regions",
+    "monitor_resolution": "3840x2160",
+    "chart_layout": "3x2_grid",
+    "last_updated": "2025-08-07"
+  },
+  "chart_regions": {
+    "ES": {
+      "position": "top_left",
+      "screen_region": {
+        "x": 640,
+        "y": 140,
+        "width": 640,
+        "height": 360
+      },
+      "enigma_signal_region": {
+        "x": 1200,
+        "y": 280,
+        "width": 60,
+        "height": 60
+      },
+      "instrument": "E-mini S&P 500",
+      "account": "APEX_ES",
+      "success_probability": 68
+    },
+    "NQ": {
+      "position": "top_center", 
+      "screen_region": {
+        "x": 1280,
+        "y": 140,
+        "width": 640,
+        "height": 360
+      },
+      "enigma_signal_region": {
+        "x": 1840,
+        "y": 280,
+        "width": 60,
+        "height": 60
+      },
+      "instrument": "E-mini NASDAQ",
+      "account": "APEX_NQ",
+      "success_probability": 72
+    },
+    "YM": {
+      "position": "top_right",
+      "screen_region": {
+        "x": 1920,
+        "y": 140,
+        "width": 640,
+        "height": 360
+      },
+      "enigma_signal_region": {
+        "x": 2480,
+        "y": 280,
+        "width": 60,
+        "height": 60
+      },
+      "instrument": "E-mini Dow Jones",
+      "account": "APEX_YM",
+      "success_probability": 65
+    },
+    "RTY": {
+      "position": "bottom_left",
+      "screen_region": {
+        "x": 640,
+        "y": 500,
+        "width": 640,
+        "height": 360
+      },
+      "enigma_signal_region": {
+        "x": 1200,
+        "y": 640,
+        "width": 60,
+        "height": 60
+      },
+      "instrument": "E-mini Russell 2000",
+      "account": "APEX_RTY",
+      "success_probability": 63
+    },
+    "GC": {
+      "position": "bottom_center",
+      "screen_region": {
+        "x": 1280,
+        "y": 500,
+        "width": 640,
+        "height": 360
+      },
+      "enigma_signal_region": {
+        "x": 1840,
+        "y": 640,
+        "width": 60,
+        "height": 60
+      },
+      "instrument": "Gold Futures",
+      "account": "APEX_GC",
+      "success_probability": 60
+    },
+    "CL": {
+      "position": "bottom_right",
+      "screen_region": {
+        "x": 1920,
+        "y": 500,
+        "width": 640,
+        "height": 360
+      },
+      "enigma_signal_region": {
+        "x": 2480,
+        "y": 640,
+        "width": 60,
+        "height": 60
+      },
+      "instrument": "Crude Oil Futures",
+      "account": "APEX_CL",
+      "success_probability": 58
+    }
+  },
+  "signal_detection": {
+    "method": "color_detection",
+    "colors": {
+      "BUY_SIGNAL": [0, 255, 0],
+      "SELL_SIGNAL": [255, 0, 0],
+      "CAUTION": [255, 255, 0],
+      "NEUTRAL": [0, 0, 255]
+    },
+    "tolerance": 30,
+    "scan_frequency": "1000ms"
+  },
+  "apex_limits": {
+    "daily_loss_limit": 2500,
+    "trailing_drawdown": 8000,
+    "consistency_rule": 0.30,
+    "max_contracts_per_trade": 3,
+    "stop_loss_multiplier": 2.0
+  },
+  "kelly_settings": {
+    "base_win_rate": 0.65,
+    "avg_win_loss_ratio": 1.8,
+    "risk_per_trade": 0.02,
+    "max_position_size": 0.25,
+    "dynamic_sizing": true
+  }
+}

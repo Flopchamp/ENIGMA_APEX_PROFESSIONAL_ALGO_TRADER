@@ -1,0 +1,93 @@
+{
+  "system_info": {
+    "version": "2.0.0_FIRST_PRINCIPLES",
+    "client": "Michael Canfield", 
+    "philosophy": "Drawdown + Enigma Probability = Decision",
+    "no_hard_coding": true,
+    "last_updated": "2025-08-07"
+  },
+  "core_principles": {
+    "primary_factors": [
+      "remaining_drawdown_per_account",
+      "enigma_success_probability_per_instrument", 
+      "real_time_decision_making"
+    ],
+    "decision_matrix": "IF drawdown_remaining > 0 AND enigma_probability > threshold THEN trade_size = f(both)"
+  },
+  "ninjatrader": {
+    "ati_port": 36973,
+    "host": "localhost", 
+    "enabled": true,
+    "auto_connect": true
+  },
+  "dynamic_accounts": {
+    "configuration_method": "user_defined",
+    "no_hard_coding": true,
+    "fields_per_account": {
+      "required": ["account_name", "instrument", "starting_balance", "current_balance"],
+      "apex_specific": ["daily_loss_limit", "trailing_drawdown_limit", "peak_balance"],
+      "calculated": ["remaining_daily_drawdown", "remaining_trailing_drawdown", "effective_drawdown"]
+    },
+    "sample_structure": {
+      "USER_DEFINED_NAME": {
+        "instrument": "USER_SELECTED",
+        "starting_balance": "USER_INPUT",
+        "current_balance": "REAL_TIME_UPDATED",
+        "daily_loss_limit": "USER_CONFIGURED",
+        "trailing_drawdown_limit": "USER_CONFIGURED", 
+        "peak_balance": "SYSTEM_TRACKED",
+        "active": "USER_CONTROLLED"
+      }
+    }
+  },
+  "enigma_probability_models": {
+    "per_instrument_basis": true,
+    "no_fixed_probabilities": true,
+    "dynamic_factors": {
+      "base_success_rate": "USER_CONFIGURED_PER_INSTRUMENT",
+      "time_of_day_multiplier": "USER_DEFINED",
+      "volatility_adjustment": "REAL_TIME_CALCULATED",
+      "recent_performance_weight": "USER_CONFIGURED",
+      "market_condition_factor": "DYNAMIC_ANALYSIS"
+    },
+    "calculation": "probability = base_rate * time_factor * volatility_factor * recent_performance",
+    "user_overrides": "USER_CAN_MANUALLY_ADJUST_ANY_FACTOR"
+  },
+  "algobox": {
+    "enabled": true,
+    "charts_monitored": 6,
+    "screen_region": "0,0,1920,1080",
+    "ocr_sensitivity": 85,
+    "signal_delay": 1.5,
+    "color_detection": true,
+    "auto_screenshot": true,
+    "signal_types": {
+      "green_circle": "STRONG_BUY",
+      "red_circle": "STRONG_SELL", 
+      "yellow_circle": "CAUTION",
+      "blue_circle": "NEUTRAL"
+    }
+  },
+  "risk_management": {
+    "kelly_criterion": true,
+    "apex_compliance": true,
+    "max_daily_loss": 2500,
+    "risk_profile": "CONSERVATIVE",
+    "position_sizing": "KELLY_OPTIMIZED",
+    "stop_loss_points": 20,
+    "take_profit_points": 40,
+    "max_drawdown_percent": 5.0
+  },
+  "trading": {
+    "decision_logic": "drawdown_remaining > 0 AND enigma_probability > user_threshold",
+    "position_sizing": "function_of_both_drawdown_and_probability",
+    "mode": "PAPER_TRADING",
+    "auto_trading": false,
+    "emergency_stop": false
+  },
+  "simplified_interface": {
+    "show_only_essentials": true,
+    "hide_complex_settings": true,
+    "focus_on": ["drawdown_status", "enigma_probability", "go_no_go_decision"]
+  }
+}
