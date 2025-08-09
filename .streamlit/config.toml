@@ -1,18 +1,29 @@
 
 [server]
-headless = false
+headless = true
 port = 8501
-enableCORS = true
-enableXsrfProtection = false
+address = "0.0.0.0"
+enableCORS = false
+enableXsrfProtection = true
+maxUploadSize = 200
 
 [browser]
 gatherUsageStats = false
+serverAddress = "0.0.0.0"
 
 [theme]
-primaryColor = "#1f4e79"
+primaryColor = "#1f77b4"
 backgroundColor = "#ffffff"
-secondaryBackgroundColor = "#f8f9fa"
+secondaryBackgroundColor = "#f0f2f6"
 textColor = "#262730"
 
 [logger]
 level = "info"
+
+[client]
+caching = true
+
+[runner]
+magicEnabled = true
+installTracer = false
+fixMatplotlib = true

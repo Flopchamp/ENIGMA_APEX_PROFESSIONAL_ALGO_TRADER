@@ -1,0 +1,8 @@
+# Training Wheels Trading Dashboard - Render Configuration
+# This file configures the Render web service deployment
+
+# Build Command (runs once during deployment)
+pip install --upgrade pip && pip install -r requirements.txt
+
+# Start Command (runs to start the service)
+streamlit run streamlit_app.py --server.port=$PORT --server.address=0.0.0.0 --server.headless=true
