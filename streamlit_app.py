@@ -4289,7 +4289,7 @@ def main():
         st.error(f"Application startup error: {e}")
         st.info("🌤️ If you're seeing this in Streamlit Cloud, this is normal during initial deployment.")
         st.markdown("## 🎯 Training Wheels for Prop Firm Traders")
-        st.markdown("### Professional Trading Enhancement System")
+        # st.markdown(")
         st.info("The application is loading... Please refresh the page in a moment.")
         
         # Provide a basic fallback interface
