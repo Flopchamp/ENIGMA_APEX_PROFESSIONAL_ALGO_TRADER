@@ -1,0 +1,35 @@
+# 🎯 Training Wheels for Prop Firm Traders - Render Deployment Requirements
+# Comprehensive dependencies for Render web service deployment
+
+# Core Streamlit and visualization
+streamlit>=1.28.0
+plotly>=5.17.0
+pandas>=2.0.3
+numpy>=1.24.4
+
+# Web framework and networking
+requests>=2.31.0
+urllib3>=1.26.0
+websockets>=11.0
+
+# System monitoring (cloud-safe)
+psutil>=5.9.0
+
+# Image processing (Pillow for OCR capabilities)
+Pillow>=10.0.0
+
+# Data processing and utilities
+python-dateutil>=2.8.0
+pytz>=2023.3
+
+# JSON and configuration handling
+jsonschema>=4.17.0
+
+# Logging and monitoring
+structlog>=23.0.0
+
+# Development and debugging
+typing-extensions>=4.5.0
+
+# Security and authentication
+cryptography>=41.0.0

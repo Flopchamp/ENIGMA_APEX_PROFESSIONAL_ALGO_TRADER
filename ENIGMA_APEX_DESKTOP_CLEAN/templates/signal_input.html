@@ -1,0 +1,146 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enigma-Apex Signal Input</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #1a1a1a; color: #fff; margin: 0; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: #2a2a2a; padding: 30px; border-radius: 10px; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .header h1 { color: #00ff88; margin: 0; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 5px; color: #ccc; font-weight: bold; }
+        input, select, textarea { width: 100%; padding: 10px; border: 1px solid #555; background: #3a3a3a; color: #fff; border-radius: 5px; box-sizing: border-box; }
+        .form-row { display: flex; gap: 20px; }
+        .form-row .form-group { flex: 1; }
+        .signal-type { display: flex; gap: 10px; }
+        .signal-type input[type="radio"] { width: auto; margin-right: 5px; }
+        .signal-type label { display: inline; margin-bottom: 0; }
+        .submit-btn { background: #00ff88; color: #000; padding: 15px 30px; border: none; border-radius: 5px; font-size: 16px; font-weight: bold; cursor: pointer; width: 100%; }
+        .submit-btn:hover { background: #00cc6a; }
+        .status { margin-top: 20px; padding: 10px; border-radius: 5px; text-align: center; }
+        .success { background: #00ff8844; border: 1px solid #00ff88; }
+        .error { background: #ff004444; border: 1px solid #ff0044; }
+        .power-score { font-size: 24px; text-align: center; color: #00ff88; }
+        .dashboard-link { display: inline-block; margin-top: 20px; padding: 10px 20px; background: #4a4a4a; color: #fff; text-decoration: none; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Enigma-Apex Signal Input</h1>
+            <p>Manual Trading Signal Entry Interface</p>
+            <a href="/dashboard" class="dashboard-link">📊 View Dashboard</a>
+        </div>
+        
+        <form id="signalForm">
+            <div class="form-group">
+                <label>Signal Type:</label>
+                <div class="signal-type">
+                    <label><input type="radio" name="signal_type" value="bullish" checked> 🟢 BULLISH</label>
+                    <label><input type="radio" name="signal_type" value="bearish"> 🔴 BEARISH</label>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="power_score">Power Score (0-100):</label>
+                <input type="range" id="power_score" name="power_score" min="0" max="100" value="75" oninput="updatePowerScore(this.value)">
+                <div id="power_display" class="power-score">75%</div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="confidence">Confidence Level:</label>
+                    <select id="confidence" name="confidence">
+                        <option value="C1">C1 - Low Confidence</option>
+                        <option value="C2" selected>C2 - Medium Confidence</option>
+                        <option value="C3">C3 - High Confidence</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="timeframe">Timeframe:</label>
+                    <select id="timeframe" name="timeframe">
+                        <option value="M5">5 Minutes</option>
+                        <option value="M15" selected>15 Minutes</option>
+                        <option value="M30">30 Minutes</option>
+                        <option value="H1">1 Hour</option>
+                        <option value="H4">4 Hours</option>
+                        <option value="D1">Daily</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="symbol">Symbol:</label>
+                    <input type="text" id="symbol" name="symbol" value="ES" placeholder="ES, NQ, EUR/USD">
+                </div>
+                
+                <div class="form-group">
+                    <label for="entry_price">Entry Price:</label>
+                    <input type="number" id="entry_price" name="entry_price" step="0.01" placeholder="0.00">
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="stop_loss">Stop Loss:</label>
+                    <input type="number" id="stop_loss" name="stop_loss" step="0.01" placeholder="0.00">
+                </div>
+                
+                <div class="form-group">
+                    <label for="take_profit">Take Profit:</label>
+                    <input type="number" id="take_profit" name="take_profit" step="0.01" placeholder="0.00">
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="notes">Notes (Optional):</label>
+                <textarea id="notes" name="notes" rows="3" placeholder="Additional signal notes..."></textarea>
+            </div>
+            
+            <button type="submit" class="submit-btn">📤 Send Signal to NinjaTrader</button>
+        </form>
+        
+        <div id="status"></div>
+    </div>
+    
+    <script>
+        function updatePowerScore(value) {
+            document.getElementById('power_display').textContent = value + '%';
+        }
+        
+        document.getElementById('signalForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const statusDiv = document.getElementById('status');
+            
+            try {
+                const response = await fetch('/submit_signal', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    statusDiv.innerHTML = '<div class="status success">✅ ' + result.message + '</div>';
+                    // Reset form
+                    this.reset();
+                    document.getElementById('power_score').value = 75;
+                    updatePowerScore(75);
+                } else {
+                    statusDiv.innerHTML = '<div class="status error">❌ ' + result.error + '</div>';
+                }
+            } catch (error) {
+                statusDiv.innerHTML = '<div class="status error">❌ Connection error: ' + error.message + '</div>';
+            }
+        });
+    </script>
+</body>
+</html>
+    

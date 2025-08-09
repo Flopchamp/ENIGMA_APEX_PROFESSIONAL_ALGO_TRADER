@@ -1,0 +1,9 @@
+@echo off
+echo Starting ENIGMA APEX Professional Desktop Version...
+echo.
+echo Installing required packages...
+pip install -r requirements.txt
+echo.
+echo Launching Trading Dashboard...
+python -m streamlit run streamlit_app_desktop.py --server.port=8501
+pause

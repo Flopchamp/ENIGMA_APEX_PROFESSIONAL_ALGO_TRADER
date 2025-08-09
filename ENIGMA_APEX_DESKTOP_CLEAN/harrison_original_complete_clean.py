@@ -97,46 +97,24 @@ try:
 except ImportError:
     WINDOWS_API_AVAILABLE = False
 
-# Desktop notifications - Cloud Safe with environment detection
+# Desktop notifications - Cloud Safe
 try:
-    # Check if we're in a cloud environment first
-    is_cloud_environment = (
-        os.getenv('RENDER') is not None or 
-        os.getenv('HEROKU') is not None or 
-        os.getenv('STREAMLIT_CLOUD') is not None or
-        'onrender.com' in os.getenv('RENDER_EXTERNAL_URL', '') or
-        not os.path.exists('/usr/bin/notify-send')
-    )
-    
-    if is_cloud_environment:
-        # Skip desktop notifications in cloud
-        NOTIFICATIONS_AVAILABLE = False
-        NOTIFICATIONS_TYPE = "cloud_disabled"
-    else:
-        import plyer
-        NOTIFICATIONS_AVAILABLE = True
-        NOTIFICATIONS_TYPE = "plyer"
+    import plyer
+    NOTIFICATIONS_AVAILABLE = True
+    NOTIFICATIONS_TYPE = "plyer"
 except ImportError:
     try:
-        # Fallback for Windows (only if not cloud)
-        if not is_cloud_environment and os.name == 'nt':
-            import win10toast
-            NOTIFICATIONS_AVAILABLE = True
-            NOTIFICATIONS_TYPE = "win10toast"
-        else:
-            NOTIFICATIONS_AVAILABLE = False
-            NOTIFICATIONS_TYPE = "cloud_disabled"
+        # Fallback for Windows
+        import win10toast
+        NOTIFICATIONS_AVAILABLE = True
+        NOTIFICATIONS_TYPE = "win10toast"
     except ImportError:
         NOTIFICATIONS_AVAILABLE = False
-        NOTIFICATIONS_TYPE = "cloud_disabled"
+        NOTIFICATIONS_TYPE = None
 
 # Audio alerts - Cloud Safe  
 try:
-    # Skip audio in cloud environments
-    if is_cloud_environment:
-        AUDIO_AVAILABLE = False
-        AUDIO_TYPE = "cloud_disabled"
-    elif os.name == 'nt':  # Only try on Windows
+    if os.name == 'nt':  # Only try on Windows
         import winsound
         AUDIO_AVAILABLE = True
         AUDIO_TYPE = "winsound"
@@ -144,16 +122,12 @@ try:
         raise ImportError("Not Windows")
 except ImportError:
     try:
-        if not is_cloud_environment:
-            import pygame
-            AUDIO_AVAILABLE = True
-            AUDIO_TYPE = "pygame"
-        else:
-            AUDIO_AVAILABLE = False
-            AUDIO_TYPE = "cloud_disabled"
+        import pygame
+        AUDIO_AVAILABLE = True
+        AUDIO_TYPE = "pygame"
     except ImportError:
         AUDIO_AVAILABLE = False
-        AUDIO_TYPE = "cloud_disabled"
+        AUDIO_TYPE = None
 
 @dataclass
 class EnigmaSignal:
@@ -340,13 +314,6 @@ class NotificationManager:
     
     def _send_desktop_notification(self, title: str, message: str, priority: str):
         """Send desktop notification using available library - Cloud Safe"""
-        
-        # Skip desktop notifications entirely in cloud environments
-        if NOTIFICATIONS_TYPE == "cloud_disabled" or not NOTIFICATIONS_AVAILABLE:
-            # Cloud fallback: Log notification instead (without error)
-            logging.info(f"🎯 NOTIFICATION [{priority.upper()}] - {title}: {message}")
-            return
-            
         try:
             # Choose icon based on priority
             icon_map = {
@@ -372,22 +339,15 @@ class NotificationManager:
                     threaded=True
                 )
             else:
-                # Desktop fallback: Log notification
+                # Cloud fallback: Log notification instead
                 logging.info(f"🎯 NOTIFICATION [{priority.upper()}] - {title}: {message}")
         except Exception as e:
-            # Don't log error in cloud environments - just log the notification
-            if NOTIFICATIONS_TYPE != "cloud_disabled":
-                logging.warning(f"Desktop notification unavailable, using logging: {title}")
+            logging.error(f"Failed to send desktop notification: {e}")
+            # Cloud fallback: Log notification
             logging.info(f"🎯 NOTIFICATION [{priority.upper()}] - {title}: {message}")
     
     def _play_alert_sound(self, priority: str):
         """Play audio alert based on priority - Cloud Safe"""
-        
-        # Skip audio alerts entirely in cloud environments  
-        if AUDIO_TYPE == "cloud_disabled" or not AUDIO_AVAILABLE:
-            # Cloud fallback: Silent operation (no logging for audio)
-            return
-            
         try:
             if AUDIO_TYPE == "winsound" and 'winsound' in globals():
                 if priority == "critical":
@@ -408,20 +368,19 @@ class NotificationManager:
                 # Pygame sound implementation (fallback)
                 pass
             else:
-                # Desktop fallback: Visual alert in logs only for desktop
-                if AUDIO_TYPE != "cloud_disabled":
-                    beep_pattern = {
-                        "critical": "🔴🔴🔴 CRITICAL ALERT 🔴🔴🔴",
-                        "high": "🟡🟡 HIGH PRIORITY 🟡🟡", 
-                        "medium": "🟢 MEDIUM PRIORITY",
-                        "low": "ℹ️ LOW PRIORITY"
-                    }
-                    logging.info(f"🎵 AUDIO ALERT: {beep_pattern.get(priority, 'ALERT')}")
+                # Cloud fallback: Visual alert in logs
+                beep_pattern = {
+                    "critical": "🔴🔴🔴 CRITICAL ALERT 🔴🔴🔴",
+                    "high": "🟡🟡 HIGH PRIORITY 🟡🟡", 
+                    "medium": "🟢 MEDIUM PRIORITY",
+                    "low": "ℹ️ LOW PRIORITY"
+                }
+                logging.info(f"🎵 AUDIO ALERT: {beep_pattern.get(priority, 'ALERT')}")
                 
         except Exception as e:
-            # Only log errors for desktop environments
-            if AUDIO_TYPE != "cloud_disabled":
-                logging.warning(f"Audio alert unavailable: {priority.upper()} priority")
+            logging.error(f"Failed to play alert sound: {e}")
+            # Still log the alert visually
+            logging.info(f"🎵 AUDIO ALERT [{priority.upper()}] - Sound failed, visual alert active")
     
     def send_erm_reversal_alert(self, chart_id: int, direction: str, erm_value: float, chart_name: str):
         """Send ERM reversal notification"""
@@ -438,15 +397,6 @@ class NotificationManager:
     
     def send_margin_warning(self, margin_percentage: float, total_equity: float):
         """Send margin warning notification"""
-        # Check if we already sent this warning recently (throttling)
-        warning_key = f"margin_warning_{int(margin_percentage/10)*10}"  # Group by 10% ranges
-        last_warning_time = getattr(self, f'last_{warning_key}', 0)
-        current_time = time.time()
-        
-        # Only send warning every 5 minutes for same range
-        if current_time - last_warning_time < 300:  # 5 minutes
-            return
-            
         if margin_percentage < 20:
             priority = "critical"
             title = "CRITICAL MARGIN WARNING"
@@ -457,9 +407,6 @@ class NotificationManager:
             return  # No warning needed
         
         message = f"Margin at {margin_percentage:.1f}% (${total_equity * margin_percentage / 100:,.0f} remaining)"
-        
-        # Update last warning time
-        setattr(self, f'last_{warning_key}', current_time)
         
         return self.send_notification(
             title=title,
@@ -879,19 +826,6 @@ class NinjaTraderConnector:
         
     def connect_via_socket(self, host: str = "localhost", port: int = 36973) -> bool:
         """Connect to NinjaTrader via socket"""
-        # Check if in cloud environment and skip connection attempts
-        is_cloud_environment = (
-            os.getenv('RENDER') is not None or 
-            os.getenv('HEROKU') is not None or 
-            os.getenv('STREAMLIT_CLOUD') is not None or
-            'onrender.com' in os.getenv('RENDER_EXTERNAL_URL', '')
-        )
-        
-        if is_cloud_environment:
-            # Silently return False for cloud environments
-            self.is_connected = False
-            return False
-            
         try:
             self.socket_connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.socket_connection.connect((host, port))
@@ -900,27 +834,12 @@ class NinjaTraderConnector:
             self.port = port
             return True
         except Exception as e:
-            # Only log errors in desktop environments
-            if not is_cloud_environment:
-                logging.error(f"NinjaTrader socket connection failed: {e}")
+            logging.error(f"NinjaTrader socket connection failed: {e}")
             self.is_connected = False
             return False
     
     def connect_via_atm(self) -> bool:
         """Connect to NinjaTrader via ATM interface - Cloud Safe"""
-        # Check if in cloud environment
-        is_cloud_environment = (
-            os.getenv('RENDER') is not None or 
-            os.getenv('HEROKU') is not None or 
-            os.getenv('STREAMLIT_CLOUD') is not None or
-            'onrender.com' in os.getenv('RENDER_EXTERNAL_URL', '')
-        )
-        
-        if is_cloud_environment:
-            # Silently simulate connection for cloud demo
-            self.is_connected = True
-            return True
-            
         try:
             # Check if NinjaTrader process is running
             if PSUTIL_AVAILABLE and hasattr(psutil, 'process_iter'):
@@ -929,14 +848,13 @@ class NinjaTraderConnector:
                         self.is_connected = True
                         return True
             else:
-                # Desktop fallback without psutil
-                self.is_connected = False
-                return False
+                # Cloud mode: Simulate connection for demo purposes
+                logging.info("NinjaTrader ATM connection simulated in cloud mode")
+                self.is_connected = True
+                return True
             return False
         except Exception as e:
-            # Only log errors in desktop environments
-            if not is_cloud_environment:
-                logging.error(f"NinjaTrader ATM connection failed: {e}")
+            logging.error(f"NinjaTrader ATM connection failed: {e}")
             return False
     
     def get_account_info(self) -> Dict[str, Any]:
@@ -1376,14 +1294,6 @@ class TradovateConnector:
         
     def authenticate(self, username: str, password: str, environment: str = "demo") -> bool:
         """Authenticate with Tradovate API"""
-        # Check if in cloud environment
-        is_cloud_environment = (
-            os.getenv('RENDER') is not None or 
-            os.getenv('HEROKU') is not None or 
-            os.getenv('STREAMLIT_CLOUD') is not None or
-            'onrender.com' in os.getenv('RENDER_EXTERNAL_URL', '')
-        )
-        
         try:
             # Placeholder for real authentication
             if username and password:
@@ -1392,9 +1302,7 @@ class TradovateConnector:
                 return True
             return False
         except Exception as e:
-            # Only log errors in desktop environments
-            if not is_cloud_environment:
-                logging.error(f"Tradovate authentication failed: {e}")
+            logging.error(f"Tradovate authentication failed: {e}")
             return False
     
     def connect_websocket(self, environment: str = "demo") -> bool:
@@ -1402,23 +1310,13 @@ class TradovateConnector:
         if not self.is_authenticated:
             return False
         
-        # Check if in cloud environment
-        is_cloud_environment = (
-            os.getenv('RENDER') is not None or 
-            os.getenv('HEROKU') is not None or 
-            os.getenv('STREAMLIT_CLOUD') is not None or
-            'onrender.com' in os.getenv('RENDER_EXTERNAL_URL', '')
-        )
-        
         try:
             if WEBSOCKET_AVAILABLE:
                 # Placeholder for websocket connection
                 return True
             return False
         except Exception as e:
-            # Only log errors in desktop environments
-            if not is_cloud_environment:
-                logging.error(f"Tradovate websocket connection failed: {e}")
+            logging.error(f"Tradovate websocket connection failed: {e}")
             return False
     
     def process_websocket_message(self, data: Dict[str, Any]):
@@ -4247,33 +4145,6 @@ timestamp,instrument,signal_type,price,confidence
                 st.success("🎉 Setup Complete! Welcome to Training Wheels!")
                 st.rerun()
     
-    def show_desktop_version_info(self):
-        """Show information about the desktop version"""
-        # Direct download link button for clean version
-        col1, col2, col3 = st.columns([1, 2, 1])
-        with col2:
-            st.markdown("""
-            <div style="text-align: center;">
-                <a href="https://github.com/Flopchamp/ENIGMA_APEX_PROFESSIONAL_ALGO_TRADER/raw/main/release_assets/Training-Wheels-Desktop-v1.0.0-Clean-Essential.zip" 
-                   target="_blank" 
-                   style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                          color: white; 
-                          padding: 15px 30px; 
-                          border-radius: 50px; 
-                          text-decoration: none; 
-                          font-weight: bold; 
-                          display: inline-block; 
-                          box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-                          transition: transform 0.2s ease;">
-                    🖥️ Download Desktop Version (Clean)
-                </a>
-                <br><br>
-                <small style="color: #666; font-size: 0.9em;">
-                    Essential files only (~200KB) - Includes all features without development files
-                </small>
-            </div>
-            """, unsafe_allow_html=True)
-    
     def run(self):
         """Main dashboard run method with real-time data refresh - Cloud Safe"""
         # Cloud deployment detection and optimization
@@ -4363,10 +4234,6 @@ timestamp,instrument,signal_type,price,confidence
         first_principal = st.session_state.first_principal_settings.get('primary_algo', 'Enigma')
         st.markdown(f"🎯 **Training Wheels for Prop Firm Traders** | {trader_name} | {selected_firm} Challenge | First Principal: {first_principal}")
         
-        # Desktop Version Promotion - Bottom of page
-        st.markdown("---")
-        self.show_desktop_version_info()
-        
         # Show ERM status in footer
         if st.session_state.erm_settings.get("enabled", False):
             active_signals = len([s for s in st.session_state.active_enigma_signals.values() if hasattr(s, 'is_active') and s.is_active])
@@ -4381,7 +4248,7 @@ def main():
         st.error(f"Application startup error: {e}")
         st.info("🌤️ If you're seeing this in Streamlit Cloud, this is normal during initial deployment.")
         st.markdown("## 🎯 Training Wheels for Prop Firm Traders")
-        # st.markdown(")
+        st.markdown("### Professional Trading Enhancement System")
         st.info("The application is loading... Please refresh the page in a moment.")
         
         # Provide a basic fallback interface
