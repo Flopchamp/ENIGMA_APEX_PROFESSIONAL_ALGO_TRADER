@@ -4249,49 +4249,30 @@ timestamp,instrument,signal_type,price,confidence
     
     def show_desktop_version_info(self):
         """Show information about the desktop version"""
-        st.markdown("""
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 2rem; border-radius: 15px; margin: 2rem 0; color: white; text-align: center;">
-            <h2 style="margin: 0; font-size: 2rem;">🖥️ Want Full Functionality?</h2>
-            <p style="font-size: 1.2rem; margin: 1rem 0;">This cloud version has limited features for demonstration purposes</p>
-            <div style="background: rgba(255,255,255,0.1); padding: 1.5rem; border-radius: 10px; margin: 1rem 0;">
-                <h3 style="margin: 0 0 1rem 0;">🚀 Desktop Version Includes:</h3>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; text-align: left;">
-                    <div>
-                        <strong>🔔 Desktop Notifications</strong><br>
-                        <small>Real-time alerts with sound</small>
-                    </div>
-                    <div>
-                        <strong>🔌 NinjaTrader Connection</strong><br>
-                        <small>Socket + ATM integration</small>
-                    </div>
-                    <div>
-                        <strong>📊 Tradovate API</strong><br>
-                        <small>Full REST + WebSocket access</small>
-                    </div>
-                    <div>
-                        <strong>👁️ OCR Signal Reading</strong><br>
-                        <small>Screen capture + recognition</small>
-                    </div>
-                    <div>
-                        <strong>🎵 Audio Alerts</strong><br>
-                        <small>Priority-based sound alerts</small>
-                    </div>
-                    <div>
-                        <strong>🚀 Native Performance</strong><br>
-                        <small>No cloud limitations</small>
-                    </div>
-                </div>
-            </div>
-            <div style="margin: 2rem 0;">
-                <a href="https://github.com/Flopchamp/ENIGMA_APEX_PROFESSIONAL_ALGO_TRADER" target="_blank" 
-                   style="background: #28a745; color: white; padding: 1rem 2rem; border-radius: 50px; text-decoration: none; font-weight: bold; display: inline-block; margin: 0.5rem;">
-                    📦 Download Desktop Version
+        # Direct download link button
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            st.markdown("""
+            <div style="text-align: center;">
+                <a href="https://github.com/Flopchamp/ENIGMA_APEX_PROFESSIONAL_ALGO_TRADER/archive/refs/heads/main.zip" 
+                   target="_blank" 
+                   style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                          color: white; 
+                          padding: 15px 30px; 
+                          border-radius: 50px; 
+                          text-decoration: none; 
+                          font-weight: bold; 
+                          display: inline-block; 
+                          box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+                          transition: transform 0.2s ease;">
+                    🖥️ Download Desktop Version
                 </a>
                 <br><br>
-                <small style="opacity: 0.8;">Click "Code" → "Download ZIP" → Run "LAUNCH_TRAINING_WHEELS_DESKTOP.bat"</small>
+                <small style="color: #666; font-size: 0.9em;">
+                    Includes notifications, NinjaTrader/Tradovate connections, and OCR capabilities
+                </small>
             </div>
-        </div>
-        """, unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
     
     def run(self):
         """Main dashboard run method with real-time data refresh - Cloud Safe"""
@@ -4299,8 +4280,6 @@ timestamp,instrument,signal_type,price,confidence
         is_cloud_deployment = not os.path.exists('C:\\') or 'STREAMLIT_CLOUD' in os.environ
         if is_cloud_deployment:
             st.info("🌤️ Running in cloud mode - Some desktop features are simulated for demonstration")
-            # Show desktop version info
-            self.show_desktop_version_info()
             # Disable auto-refresh in cloud to prevent resource exhaustion
             if 'auto_refresh' not in st.session_state:
                 st.session_state.auto_refresh = False
@@ -4383,6 +4362,10 @@ timestamp,instrument,signal_type,price,confidence
         trader_name = getattr(st.session_state.user_config, 'trader_name', 'Professional Trader')
         first_principal = st.session_state.first_principal_settings.get('primary_algo', 'Enigma')
         st.markdown(f"🎯 **Training Wheels for Prop Firm Traders** | {trader_name} | {selected_firm} Challenge | First Principal: {first_principal}")
+        
+        # Desktop Version Promotion - Bottom of page
+        st.markdown("---")
+        self.show_desktop_version_info()
         
         # Show ERM status in footer
         if st.session_state.erm_settings.get("enabled", False):
