@@ -29,12 +29,23 @@ git push -u origin main
    - Select the repository with your Trading Wheels code
 
 2. **Configuration Settings**
+   
+   **⚠️ CRITICAL: Enter ONLY the commands below (NO LABELS!):**
+   
+   **Name:** `training-wheels-trading`
+   **Environment:** `Python 3`
+   
+   **Build Command (copy this exactly):**
    ```
-   Name: training-wheels-trading
-   Environment: Python 3
-   Build Command: pip install --upgrade pip && pip install -r requirements.txt
-   Start Command: streamlit run streamlit_app.py --server.port=$PORT --server.address=0.0.0.0 --server.headless=true
+   pip install --upgrade pip && pip install -r requirements.txt
    ```
+   
+   **Start Command (copy this exactly - NO "Start Command:" prefix!):**
+   ```
+   streamlit run streamlit_app.py --server.port=$PORT --server.address=0.0.0.0 --server.headless=true
+   ```
+   
+   **🚨 COMMON ERROR:** Do NOT include "Start Command:" in the actual field!
 
 3. **Environment Variables (Optional)**
    ```

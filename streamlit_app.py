@@ -97,24 +97,46 @@ try:
 except ImportError:
     WINDOWS_API_AVAILABLE = False
 
-# Desktop notifications - Cloud Safe
+# Desktop notifications - Cloud Safe with environment detection
 try:
-    import plyer
-    NOTIFICATIONS_AVAILABLE = True
-    NOTIFICATIONS_TYPE = "plyer"
+    # Check if we're in a cloud environment first
+    is_cloud_environment = (
+        os.getenv('RENDER') is not None or 
+        os.getenv('HEROKU') is not None or 
+        os.getenv('STREAMLIT_CLOUD') is not None or
+        'onrender.com' in os.getenv('RENDER_EXTERNAL_URL', '') or
+        not os.path.exists('/usr/bin/notify-send')
+    )
+    
+    if is_cloud_environment:
+        # Skip desktop notifications in cloud
+        NOTIFICATIONS_AVAILABLE = False
+        NOTIFICATIONS_TYPE = "cloud_disabled"
+    else:
+        import plyer
+        NOTIFICATIONS_AVAILABLE = True
+        NOTIFICATIONS_TYPE = "plyer"
 except ImportError:
     try:
-        # Fallback for Windows
-        import win10toast
-        NOTIFICATIONS_AVAILABLE = True
-        NOTIFICATIONS_TYPE = "win10toast"
+        # Fallback for Windows (only if not cloud)
+        if not is_cloud_environment and os.name == 'nt':
+            import win10toast
+            NOTIFICATIONS_AVAILABLE = True
+            NOTIFICATIONS_TYPE = "win10toast"
+        else:
+            NOTIFICATIONS_AVAILABLE = False
+            NOTIFICATIONS_TYPE = "cloud_disabled"
     except ImportError:
         NOTIFICATIONS_AVAILABLE = False
-        NOTIFICATIONS_TYPE = None
+        NOTIFICATIONS_TYPE = "cloud_disabled"
 
 # Audio alerts - Cloud Safe  
 try:
-    if os.name == 'nt':  # Only try on Windows
+    # Skip audio in cloud environments
+    if is_cloud_environment:
+        AUDIO_AVAILABLE = False
+        AUDIO_TYPE = "cloud_disabled"
+    elif os.name == 'nt':  # Only try on Windows
         import winsound
         AUDIO_AVAILABLE = True
         AUDIO_TYPE = "winsound"
@@ -122,12 +144,16 @@ try:
         raise ImportError("Not Windows")
 except ImportError:
     try:
-        import pygame
-        AUDIO_AVAILABLE = True
-        AUDIO_TYPE = "pygame"
+        if not is_cloud_environment:
+            import pygame
+            AUDIO_AVAILABLE = True
+            AUDIO_TYPE = "pygame"
+        else:
+            AUDIO_AVAILABLE = False
+            AUDIO_TYPE = "cloud_disabled"
     except ImportError:
         AUDIO_AVAILABLE = False
-        AUDIO_TYPE = None
+        AUDIO_TYPE = "cloud_disabled"
 
 @dataclass
 class EnigmaSignal:
@@ -314,6 +340,13 @@ class NotificationManager:
     
     def _send_desktop_notification(self, title: str, message: str, priority: str):
         """Send desktop notification using available library - Cloud Safe"""
+        
+        # Skip desktop notifications entirely in cloud environments
+        if NOTIFICATIONS_TYPE == "cloud_disabled" or not NOTIFICATIONS_AVAILABLE:
+            # Cloud fallback: Log notification instead (without error)
+            logging.info(f"🎯 NOTIFICATION [{priority.upper()}] - {title}: {message}")
+            return
+            
         try:
             # Choose icon based on priority
             icon_map = {
@@ -339,15 +372,22 @@ class NotificationManager:
                     threaded=True
                 )
             else:
-                # Cloud fallback: Log notification instead
+                # Desktop fallback: Log notification
                 logging.info(f"🎯 NOTIFICATION [{priority.upper()}] - {title}: {message}")
         except Exception as e:
-            logging.error(f"Failed to send desktop notification: {e}")
-            # Cloud fallback: Log notification
+            # Don't log error in cloud environments - just log the notification
+            if NOTIFICATIONS_TYPE != "cloud_disabled":
+                logging.warning(f"Desktop notification unavailable, using logging: {title}")
             logging.info(f"🎯 NOTIFICATION [{priority.upper()}] - {title}: {message}")
     
     def _play_alert_sound(self, priority: str):
         """Play audio alert based on priority - Cloud Safe"""
+        
+        # Skip audio alerts entirely in cloud environments  
+        if AUDIO_TYPE == "cloud_disabled" or not AUDIO_AVAILABLE:
+            # Cloud fallback: Silent operation (no logging for audio)
+            return
+            
         try:
             if AUDIO_TYPE == "winsound" and 'winsound' in globals():
                 if priority == "critical":
@@ -368,19 +408,20 @@ class NotificationManager:
                 # Pygame sound implementation (fallback)
                 pass
             else:
-                # Cloud fallback: Visual alert in logs
-                beep_pattern = {
-                    "critical": "🔴🔴🔴 CRITICAL ALERT 🔴🔴🔴",
-                    "high": "🟡🟡 HIGH PRIORITY 🟡🟡", 
-                    "medium": "🟢 MEDIUM PRIORITY",
-                    "low": "ℹ️ LOW PRIORITY"
-                }
-                logging.info(f"🎵 AUDIO ALERT: {beep_pattern.get(priority, 'ALERT')}")
+                # Desktop fallback: Visual alert in logs only for desktop
+                if AUDIO_TYPE != "cloud_disabled":
+                    beep_pattern = {
+                        "critical": "🔴🔴🔴 CRITICAL ALERT 🔴🔴🔴",
+                        "high": "🟡🟡 HIGH PRIORITY 🟡🟡", 
+                        "medium": "🟢 MEDIUM PRIORITY",
+                        "low": "ℹ️ LOW PRIORITY"
+                    }
+                    logging.info(f"🎵 AUDIO ALERT: {beep_pattern.get(priority, 'ALERT')}")
                 
         except Exception as e:
-            logging.error(f"Failed to play alert sound: {e}")
-            # Still log the alert visually
-            logging.info(f"🎵 AUDIO ALERT [{priority.upper()}] - Sound failed, visual alert active")
+            # Only log errors for desktop environments
+            if AUDIO_TYPE != "cloud_disabled":
+                logging.warning(f"Audio alert unavailable: {priority.upper()} priority")
     
     def send_erm_reversal_alert(self, chart_id: int, direction: str, erm_value: float, chart_name: str):
         """Send ERM reversal notification"""

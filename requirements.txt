@@ -28,9 +28,6 @@ jsonschema>=4.17.0
 # Logging and monitoring
 structlog>=23.0.0
 
-# Optional: For enhanced notifications (if available on Render)
-plyer>=2.1.0
-
 # Development and debugging
 typing-extensions>=4.5.0
 
