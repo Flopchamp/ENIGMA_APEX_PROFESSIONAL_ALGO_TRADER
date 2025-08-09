@@ -1,0 +1,42 @@
+# Training Wheels Desktop Version - Requirements
+# This file contains all the desktop-specific dependencies that are NOT included in the cloud version
+# Install these for full desktop functionality including notifications and NinjaTrader connections
+
+# Core Streamlit and data processing (already in cloud version)
+streamlit>=1.28.0
+pandas>=1.5.0
+numpy>=1.24.0
+plotly>=5.15.0
+
+# Desktop-specific packages for full functionality
+psutil>=5.9.0                    # System monitoring and process detection
+plyer>=2.1.0                     # Cross-platform desktop notifications  
+win10toast>=0.9                  # Windows 10/11 toast notifications (Windows only)
+pywin32>=306; sys_platform == "win32"  # Windows API access (Windows only)
+
+# OCR capabilities for signal reading
+Pillow>=9.5.0                    # Image processing
+pytesseract>=0.3.10              # OCR text extraction
+
+# Real-time connections
+websockets>=11.0                 # WebSocket connections for Tradovate
+requests>=2.31.0                 # HTTP requests for API calls
+socket                           # Built-in Python socket library
+
+# Audio alerts
+pygame>=2.5.0                    # Cross-platform audio (alternative to winsound)
+
+# Trading and financial calculations
+scipy>=1.10.0                    # Scientific calculations for Kelly Criterion
+scikit-learn>=1.3.0              # Machine learning for signal analysis
+
+# Enhanced logging and configuration
+python-dotenv>=1.0.0             # Environment variable management
+colorlog>=6.7.0                  # Colored logging output
+
+# Optional: Database support for trade history
+sqlite3                          # Built-in Python SQLite (for trade history)
+
+# Development and testing
+pytest>=7.4.0                   # Unit testing
+black>=23.7.0                   # Code formatting
