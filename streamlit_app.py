@@ -438,6 +438,15 @@ class NotificationManager:
     
     def send_margin_warning(self, margin_percentage: float, total_equity: float):
         """Send margin warning notification"""
+        # Check if we already sent this warning recently (throttling)
+        warning_key = f"margin_warning_{int(margin_percentage/10)*10}"  # Group by 10% ranges
+        last_warning_time = getattr(self, f'last_{warning_key}', 0)
+        current_time = time.time()
+        
+        # Only send warning every 5 minutes for same range
+        if current_time - last_warning_time < 300:  # 5 minutes
+            return
+            
         if margin_percentage < 20:
             priority = "critical"
             title = "CRITICAL MARGIN WARNING"
@@ -448,6 +457,9 @@ class NotificationManager:
             return  # No warning needed
         
         message = f"Margin at {margin_percentage:.1f}% (${total_equity * margin_percentage / 100:,.0f} remaining)"
+        
+        # Update last warning time
+        setattr(self, f'last_{warning_key}', current_time)
         
         return self.send_notification(
             title=title,
@@ -867,6 +879,19 @@ class NinjaTraderConnector:
         
     def connect_via_socket(self, host: str = "localhost", port: int = 36973) -> bool:
         """Connect to NinjaTrader via socket"""
+        # Check if in cloud environment and skip connection attempts
+        is_cloud_environment = (
+            os.getenv('RENDER') is not None or 
+            os.getenv('HEROKU') is not None or 
+            os.getenv('STREAMLIT_CLOUD') is not None or
+            'onrender.com' in os.getenv('RENDER_EXTERNAL_URL', '')
+        )
+        
+        if is_cloud_environment:
+            # Silently return False for cloud environments
+            self.is_connected = False
+            return False
+            
         try:
             self.socket_connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.socket_connection.connect((host, port))
@@ -875,12 +900,27 @@ class NinjaTraderConnector:
             self.port = port
             return True
         except Exception as e:
-            logging.error(f"NinjaTrader socket connection failed: {e}")
+            # Only log errors in desktop environments
+            if not is_cloud_environment:
+                logging.error(f"NinjaTrader socket connection failed: {e}")
             self.is_connected = False
             return False
     
     def connect_via_atm(self) -> bool:
         """Connect to NinjaTrader via ATM interface - Cloud Safe"""
+        # Check if in cloud environment
+        is_cloud_environment = (
+            os.getenv('RENDER') is not None or 
+            os.getenv('HEROKU') is not None or 
+            os.getenv('STREAMLIT_CLOUD') is not None or
+            'onrender.com' in os.getenv('RENDER_EXTERNAL_URL', '')
+        )
+        
+        if is_cloud_environment:
+            # Silently simulate connection for cloud demo
+            self.is_connected = True
+            return True
+            
         try:
             # Check if NinjaTrader process is running
             if PSUTIL_AVAILABLE and hasattr(psutil, 'process_iter'):
@@ -889,13 +929,14 @@ class NinjaTraderConnector:
                         self.is_connected = True
                         return True
             else:
-                # Cloud mode: Simulate connection for demo purposes
-                logging.info("NinjaTrader ATM connection simulated in cloud mode")
-                self.is_connected = True
-                return True
+                # Desktop fallback without psutil
+                self.is_connected = False
+                return False
             return False
         except Exception as e:
-            logging.error(f"NinjaTrader ATM connection failed: {e}")
+            # Only log errors in desktop environments
+            if not is_cloud_environment:
+                logging.error(f"NinjaTrader ATM connection failed: {e}")
             return False
     
     def get_account_info(self) -> Dict[str, Any]:
@@ -1335,6 +1376,14 @@ class TradovateConnector:
         
     def authenticate(self, username: str, password: str, environment: str = "demo") -> bool:
         """Authenticate with Tradovate API"""
+        # Check if in cloud environment
+        is_cloud_environment = (
+            os.getenv('RENDER') is not None or 
+            os.getenv('HEROKU') is not None or 
+            os.getenv('STREAMLIT_CLOUD') is not None or
+            'onrender.com' in os.getenv('RENDER_EXTERNAL_URL', '')
+        )
+        
         try:
             # Placeholder for real authentication
             if username and password:
@@ -1343,7 +1392,9 @@ class TradovateConnector:
                 return True
             return False
         except Exception as e:
-            logging.error(f"Tradovate authentication failed: {e}")
+            # Only log errors in desktop environments
+            if not is_cloud_environment:
+                logging.error(f"Tradovate authentication failed: {e}")
             return False
     
     def connect_websocket(self, environment: str = "demo") -> bool:
@@ -1351,13 +1402,23 @@ class TradovateConnector:
         if not self.is_authenticated:
             return False
         
+        # Check if in cloud environment
+        is_cloud_environment = (
+            os.getenv('RENDER') is not None or 
+            os.getenv('HEROKU') is not None or 
+            os.getenv('STREAMLIT_CLOUD') is not None or
+            'onrender.com' in os.getenv('RENDER_EXTERNAL_URL', '')
+        )
+        
         try:
             if WEBSOCKET_AVAILABLE:
                 # Placeholder for websocket connection
                 return True
             return False
         except Exception as e:
-            logging.error(f"Tradovate websocket connection failed: {e}")
+            # Only log errors in desktop environments
+            if not is_cloud_environment:
+                logging.error(f"Tradovate websocket connection failed: {e}")
             return False
     
     def process_websocket_message(self, data: Dict[str, Any]):
