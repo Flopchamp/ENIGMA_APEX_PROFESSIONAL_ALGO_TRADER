@@ -1,7 +1,9 @@
-# Streamlit Cloud Optimized Requirements
-# Minimal dependencies for cloud deployment
+# 🎯 Training Wheels for Prop Firm Traders - Cloud Optimized Requirements
+# Minimal dependencies for reliable cloud deployment
 
-streamlit==1.28.0
-plotly==5.17.0
-pandas==2.0.3
-numpy==1.24.4
+streamlit>=1.28.0,<2.0.0
+plotly>=5.17.0,<6.0.0
+pandas>=2.0.3,<3.0.0
+numpy>=1.24.4,<2.0.0
+requests>=2.31.0
+psutil>=5.9.0
