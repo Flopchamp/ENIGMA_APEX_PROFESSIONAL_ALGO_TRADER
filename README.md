@@ -1,22 +1,97 @@
-# 🎯 UNIVERSAL 6-CHART TRADING SYSTEM
-## Professional Multi-Dashboard Trading Control Panel - PRODUCTION READY
+# 🎯 TRAINING WHEELS FOR PROP FIRM TRADERS
+## Professional Trading Enhancement System - FULL DESKTOP & CLOUD VERSIONS
 
-### 🚀 QUICK START (PRODUCTION DEPLOYMENT)
+---
 
-**PRODUCTION LAUNCH:**
+## 🚀 TWO VERSIONS AVAILABLE
+
+### ☁️ CLOUD DEMO VERSION (INSTANT ACCESS)
+**Try it now:** https://enigma-apex-professional-algo-trader.onrender.com
+- **Instant access** - No installation required
+- **Demo functionality** - Shows how the system works
+- **Limited features** - Cloud restrictions apply
+
+### 🖥️ DESKTOP VERSION (FULL FUNCTIONALITY)
+**Download for complete experience:**
+
+#### � HOW TO DOWNLOAD:
+1. **Click the GREEN "Code" button** above (on GitHub)
+2. **Select "Download ZIP"**
+3. **Extract the ZIP file**
+4. **Double-click:** `LAUNCH_TRAINING_WHEELS_DESKTOP.bat` (Windows) or `launch_training_wheels_desktop.sh` (Mac/Linux)
+5. **Wait for automatic setup** (first time only)
+6. **Full desktop version opens** at http://localhost:8502
+
+#### ✅ DESKTOP VERSION INCLUDES:
+- 🔔 **Desktop notifications** with audio alerts
+- 🔌 **NinjaTrader 8 connectivity** (Socket + ATM)
+- 📊 **Full Tradovate API integration** (REST + WebSocket)
+- 👁️ **OCR signal reading** from any trading platform
+- 🎵 **Priority-based audio alerts** for critical events
+- 🚀 **Native performance** without cloud limitations
+- ⚙️ **Complete customization** options
+
+---
+
+## 🔧 DESKTOP FEATURES
+
+### 🔔 Professional Notifications
+- **Windows 10/11:** Native toast notifications
+- **Cross-platform:** Works on Windows, Mac, Linux
+- **Audio alerts:** Different beep patterns for priorities
+- **Customizable:** Configure per notification type
+
+### 🔌 Trading Platform Integration
+- **NinjaTrader 8:** Direct socket connection + process detection
+- **Tradovate:** Full REST API + WebSocket real-time data
+- **Order execution:** Place trades directly from dashboard
+- **Account monitoring:** Live P&L, positions, margin
+
+### 👁️ OCR Signal Reading
+- **Screen capture:** Monitor specific regions
+- **Signal detection:** Auto-detect BUY/SELL/LONG/SHORT
+- **Multi-platform:** Works with any trading software
+- **Pattern matching:** Advanced signal recognition
+
+---
+
+## 🆚 COMPARISON
+
+| Feature | 🖥️ Desktop Version | ☁️ Cloud Demo |
+|---------|-------------------|---------------|
+| **Installation** | One-time setup | Instant access |
+| **Notifications** | ✅ Full desktop alerts | ❌ Disabled |
+| **NinjaTrader** | ✅ Socket + ATM connection | ❌ Demo only |
+| **Tradovate** | ✅ Full API integration | ⚠️ Limited |
+| **OCR Reading** | ✅ Screen capture + recognition | ❌ Not available |
+| **Audio Alerts** | ✅ Priority-based sounds | ❌ Silent |
+| **Performance** | 🚀 Native speed | 🐌 Cloud limits |
+| **Customization** | ✅ Complete control | ⚠️ Limited |
+
+---
+
+## 🚀 QUICK START OPTIONS
+
+### 🥇 RECOMMENDED: Desktop Version
 ```bash
-python launch_production.py
+# Download ZIP from GitHub
+# Extract files
+# Windows:
+LAUNCH_TRAINING_WHEELS_DESKTOP.bat
+
+# Mac/Linux:
+./launch_training_wheels_desktop.sh
 ```
 
-**ALTERNATIVE LAUNCHERS:**
-- Harrison's Enhanced Dashboard: `python launch_harrison.py`
-- NinjaTrader Integration: `python launch_ninjatrader.py`
-- Universal Dashboard: `python app.py` or `streamlit run app.py`
+### 🥈 ALTERNATIVE: Git Clone
+```bash
+git clone https://github.com/Flopchamp/ENIGMA_APEX_PROFESSIONAL_ALGO_TRADER.git
+cd ENIGMA_APEX_PROFESSIONAL_ALGO_TRADER
+# Run desktop launcher (see above)
+```
 
-**FOR NEW USERS:**
-1. Read `SETUP_GUIDE.md` for step-by-step instructions
-2. Start with Demo mode for safe testing
-3. Test connections before live trading
+### 🥉 CLOUD DEMO (Limited)
+Visit: https://enigma-apex-professional-algo-trader.onrender.com
 
 ---
 
