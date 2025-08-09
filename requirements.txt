@@ -1,9 +1,14 @@
 # 🎯 Training Wheels for Prop Firm Traders - Cloud Optimized Requirements
-# Minimal dependencies for reliable cloud deployment
+# Core dependencies for reliable Streamlit Cloud deployment
 
 streamlit>=1.28.0,<2.0.0
 plotly>=5.17.0,<6.0.0
 pandas>=2.0.3,<3.0.0
 numpy>=1.24.4,<2.0.0
+
+# Optional cloud-safe dependencies
 requests>=2.31.0
 psutil>=5.9.0
+
+# Note: Desktop-specific packages (winsound, win32gui, etc.) are handled 
+# with try/except imports in the code for cloud compatibility
