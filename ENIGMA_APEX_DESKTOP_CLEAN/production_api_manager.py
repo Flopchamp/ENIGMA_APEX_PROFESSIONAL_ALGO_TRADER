@@ -135,7 +135,7 @@ class TradovateAPI(TradingPlatform):
         self.access_token = None
         self.websocket = None
         self.is_connected = False
-        
+
         # API endpoints
         if environment == "live":
             self.base_url = "https://live.tradovateapi.com/v1"
@@ -143,12 +143,17 @@ class TradovateAPI(TradingPlatform):
         else:
             self.base_url = "https://demo.tradovateapi.com/v1"
             self.ws_url = "wss://demo.tradovateapi.com/v1/websocket"
-        
+
         self.logger = logging.getLogger(__name__)
-        self.market_data_callbacks = []
+        self.market_data_callbacks: List[Callable] = []
+
+        # Reconnection state
+        self._reconnect_enabled: bool = True
+        self._subscribed_symbols: List[str] = []
         
     async def connect(self) -> bool:
         """Establish connection to Tradovate API"""
+        self._reconnect_enabled = True
         try:
             # Step 1: Authenticate and get access token
             auth_response = requests.post(
@@ -194,6 +199,7 @@ class TradovateAPI(TradingPlatform):
     
     async def disconnect(self):
         """Disconnect from Tradovate API"""
+        self._reconnect_enabled = False  # prevent auto-reconnect on intentional close
         try:
             if self.websocket:
                 await self.websocket.close()
@@ -408,21 +414,23 @@ class TradovateAPI(TradingPlatform):
             self.logger.error(f"Error getting orders: {e}")
             return []
     
-    async def subscribe_market_data(self, symbols: List[str], callback: Callable):
+    async def subscribe_market_data(self, symbols: List[str], callback: Optional[Callable]):
         """Subscribe to real-time market data"""
         try:
             if not self.is_connected:
                 raise Exception("Not connected to Tradovate")
-            
-            self.market_data_callbacks.append(callback)
-            
+
+            if callback is not None and callback not in self.market_data_callbacks:
+                self.market_data_callbacks.append(callback)
+
             # Subscribe to quotes for each symbol
             for symbol in symbols:
+                if symbol not in self._subscribed_symbols:
+                    self._subscribed_symbols.append(symbol)
                 subscribe_message = {
                     "url": "md/subscribeQuote",
                     "body": {"symbol": symbol}
                 }
-                
                 await self.websocket.send(json.dumps(subscribe_message))
                 self.logger.info(f"Subscribed to market data for {symbol}")
             
@@ -431,11 +439,11 @@ class TradovateAPI(TradingPlatform):
             raise
     
     async def _websocket_listener(self):
-        """Listen for WebSocket messages"""
+        """Listen for WebSocket messages and trigger reconnect on unexpected drop."""
         try:
             async for message in self.websocket:
                 data = json.loads(message)
-                
+
                 # Handle market data updates
                 if data.get("e") == "md":  # Market data event
                     for callback in self.market_data_callbacks:
@@ -443,13 +451,61 @@ class TradovateAPI(TradingPlatform):
                             await callback(data)
                         except Exception as e:
                             self.logger.error(f"Error in market data callback: {e}")
-                
+
         except websockets.exceptions.ConnectionClosed:
-            self.logger.info("WebSocket connection closed")
+            self.logger.warning("Tradovate WebSocket connection closed unexpectedly")
             self.is_connected = False
+            if self._reconnect_enabled:
+                asyncio.create_task(self._reconnect())
         except Exception as e:
-            self.logger.error(f"WebSocket error: {e}")
+            self.logger.error(f"Tradovate WebSocket error: {e}")
             self.is_connected = False
+            if self._reconnect_enabled:
+                asyncio.create_task(self._reconnect())
+
+    async def _reconnect(self):
+        """Reconnect to Tradovate with exponential backoff, then replay subscriptions.
+
+        Backoff schedule: 1s, 2s, 4s, 8s, 16s, 30s (capped), up to 10 attempts.
+        """
+        max_attempts = 10
+        base_delay = 1.0
+        cap_delay = 30.0
+
+        for attempt in range(1, max_attempts + 1):
+            if not self._reconnect_enabled:
+                self.logger.info("Reconnect aborted — disconnect was intentional")
+                return
+
+            delay = min(base_delay * (2 ** (attempt - 1)), cap_delay)
+            self.logger.warning(
+                f"Tradovate reconnect attempt {attempt}/{max_attempts} in {delay:.0f}s"
+            )
+            await asyncio.sleep(delay)
+
+            if not self._reconnect_enabled:
+                return
+
+            try:
+                success = await self.connect()
+                if success:
+                    # Replay subscriptions (connect() resets the websocket;
+                    # _subscribed_symbols still holds the symbols from before the drop)
+                    if self._subscribed_symbols:
+                        await self.subscribe_market_data(
+                            list(self._subscribed_symbols), None
+                        )
+                    self.logger.info(
+                        f"Tradovate reconnected on attempt {attempt}; "
+                        f"{len(self._subscribed_symbols)} subscription(s) replayed"
+                    )
+                    return
+            except Exception as e:
+                self.logger.warning(f"Reconnect attempt {attempt} failed: {e}")
+
+        self.logger.error(
+            f"Tradovate: giving up after {max_attempts} reconnect attempts"
+        )
 
 class ProductionAPIManager:
     """Manages all trading platform connections"""

@@ -72,8 +72,8 @@ class StreamlitTradingDashboard:
                 layout="wide",
                 initial_sidebar_state="expanded"
             )
-        except:
-            pass  # Page config already set by main app
+        except Exception:
+            pass  # st.set_page_config raises if called more than once per session
         
         # Custom CSS
         st.markdown("""

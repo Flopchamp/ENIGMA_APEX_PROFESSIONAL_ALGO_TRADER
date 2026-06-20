@@ -73,7 +73,8 @@ class FirstPrinciplesAI:
     def initialize_database(self):
         """Initialize AI analytics database"""
         try:
-            self.db_connection = sqlite3.connect('ai_trading_analytics.db')
+            self.db_connection = sqlite3.connect('ai_trading_analytics.db', timeout=30)
+            self.db_connection.execute("PRAGMA journal_mode=WAL")
             cursor = self.db_connection.cursor()
             
             # Create first principles tracking table

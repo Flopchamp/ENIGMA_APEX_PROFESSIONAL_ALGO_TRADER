@@ -450,9 +450,9 @@ class NinjaTraderConnector:
                         self.is_connected = True
                         logging.info("NinjaTrader window found")
                         return True
-                except:
+                except Exception:
                     pass
-            
+
             logging.warning("NinjaTrader process not detected")
             return False
             
@@ -504,16 +504,16 @@ class NinjaTraderConnector:
                 test_message = "PING\r\n"
                 self.socket_connection.send(test_message.encode())
                 return True
-        except:
+        except OSError:
             return False
-        
+
         # For ATM connection, check if process is still running
         if PSUTIL_AVAILABLE:
             try:
                 for proc in psutil.process_iter(['pid', 'name']):
                     if proc.info and 'ninjatrader' in str(proc.info.get('name', '')).lower():
                         return True
-            except:
+            except Exception:
                 pass
         
         return False

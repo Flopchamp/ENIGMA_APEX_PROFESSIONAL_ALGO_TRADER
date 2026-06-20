@@ -66,32 +66,50 @@ class SecureCredentialManager:
         try:
             # Try to get existing master password
             master_password = keyring.get_password(self.app_name, "master_password")
-            
+
             if not master_password:
                 # Create new master password
-                print("🔒 First time setup - Creating secure master password")
+                print("First time setup — creating secure master password")
                 master_password = getpass.getpass("Enter master password for credential encryption: ")
-                
+
                 if len(master_password) < 8:
                     raise ValueError("Master password must be at least 8 characters")
-                
+
                 # Store in system keyring
                 keyring.set_password(self.app_name, "master_password", master_password)
-                self.logger.info("Master password created and stored securely")
-            
+                self.logger.info("Master password created and stored in system keyring")
+
             return master_password
-            
-        except Exception as e:
-            self.logger.error(f"Error managing master password: {e}")
-            # Fallback to environment variable
-            master_password = os.getenv("ENIGMA_MASTER_PASSWORD")
+
+        except Exception:
+            # Do NOT log the exception — it may contain keyring error text that
+            # includes partial credential data on some backends.
+            self.logger.warning(
+                "System keyring is unavailable. Falling back to ENIGMA_MASTER_PASSWORD "
+                "environment variable. This is LESS SECURE than keyring — the value is "
+                "visible in process listings on Linux/Docker. Prefer running with a "
+                "keyring-capable backend (e.g. secretservice, Windows Credential Manager)."
+            )
+            master_password = os.environ.get("ENIGMA_MASTER_PASSWORD")
             if not master_password:
-                raise Exception("No master password available. Set ENIGMA_MASTER_PASSWORD environment variable.")
+                raise RuntimeError(
+                    "No master password available: keyring is unavailable and "
+                    "ENIGMA_MASTER_PASSWORD environment variable is not set."
+                )
+            # Clear from environment immediately so it doesn't linger in
+            # /proc/<pid>/environ or child-process env dumps.
+            os.environ.pop("ENIGMA_MASTER_PASSWORD", None)
             return master_password
     
     def _derive_encryption_key(self, password: str) -> bytes:
-        """Derive encryption key from master password using PBKDF2"""
-        # Use a fixed salt for consistency (in production, consider unique per-user salts)
+        """Derive encryption key from master password using PBKDF2.
+
+        WARNING — fixed salt: two users with the same master password will derive
+        the same encryption key.  This is a known trade-off made for portability
+        (credential files can be moved between machines without re-keying).
+        Acceptable for single-user desktop use; if multi-user support is ever
+        added, switch to a per-user random salt stored alongside the credential file.
+        """
         salt = b"enigma_apex_trading_2024"
         
         kdf = PBKDF2HMAC(
@@ -315,7 +333,7 @@ class SecureCredentialManager:
                 encrypted = self.cipher_suite.encrypt(test_data.encode())
                 decrypted = self.cipher_suite.decrypt(encrypted).decode()
                 tests["encryption_cycle"] = (test_data == decrypted)
-            except:
+            except Exception:
                 tests["encryption_cycle"] = False
             
             self.logger.info(f"Security test results: {tests}")

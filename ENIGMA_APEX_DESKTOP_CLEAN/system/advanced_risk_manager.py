@@ -67,11 +67,17 @@ class AdvancedRiskManager:
         self.kelly_performance_tracking = True
         
         self._init_database()
-    
+
+    def _connect(self) -> sqlite3.Connection:
+        """Open a WAL-mode connection with a write timeout so concurrent writers queue instead of crashing."""
+        conn = sqlite3.connect(self.db_path, timeout=30)
+        conn.execute("PRAGMA journal_mode=WAL")
+        return conn
+
     def _init_database(self):
         """Initialize risk management database tables"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = self._connect()
             cursor = conn.cursor()
             
             # Risk metrics table
@@ -132,7 +138,7 @@ class AdvancedRiskManager:
     async def calculate_kelly_criterion_historical(self, symbol: str, lookback_days: int = 30) -> float:
         """Calculate optimal position size using Kelly Criterion from historical data"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = self._connect()
             
             # Get historical trade data
             query = '''
@@ -218,7 +224,7 @@ class AdvancedRiskManager:
     async def calculate_risk_metrics(self) -> RiskMetrics:
         """Calculate comprehensive risk metrics"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = self._connect()
             
             # Get account balance (latest)
             cursor = conn.cursor()
@@ -381,7 +387,7 @@ class AdvancedRiskManager:
     async def _calculate_average_kelly(self) -> float:
         """Calculate average Kelly percentage across active symbols"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = self._connect()
             cursor = conn.cursor()
             
             cursor.execute('SELECT DISTINCT symbol FROM trading_signals')
@@ -456,7 +462,7 @@ class AdvancedRiskManager:
     async def save_risk_alert(self, alert: Dict):
         """Save risk alert to database"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = self._connect()
             cursor = conn.cursor()
             
             cursor.execute('''
@@ -484,7 +490,7 @@ class AdvancedRiskManager:
                 await self.save_risk_alert(violation)
             
             # Get recent alerts
-            conn = sqlite3.connect(self.db_path)
+            conn = self._connect()
             recent_alerts = pd.read_sql_query('''
                 SELECT * FROM risk_alerts 
                 WHERE timestamp > datetime('now', '-24 hours')

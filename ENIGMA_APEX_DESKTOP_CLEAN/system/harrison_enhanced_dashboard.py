@@ -86,8 +86,8 @@ class HarrisonEnhancedDashboard:
                 layout="wide",
                 initial_sidebar_state="expanded"
             )
-        except:
-            pass  # Page config already set
+        except Exception:
+            pass  # st.set_page_config raises if called more than once per session
         
         # Harrison's original CSS with minor enhancements
         st.markdown("""
@@ -218,9 +218,9 @@ class HarrisonEnhancedDashboard:
                         connection_status = "Connected"
                         market_data_status = "Connected"
                     sock.close()
-                except:
+                except OSError:
                     pass
-                
+
                 # Method 3: Check for NinjaTrader files
                 import os
                 nt8_path = os.path.expanduser("~\\Documents\\NinjaTrader 8")
