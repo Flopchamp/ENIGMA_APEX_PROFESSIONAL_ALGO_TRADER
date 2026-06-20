@@ -149,7 +149,7 @@ class AdvancedRiskManager:
             df = pd.read_sql_query(query, conn, params=(symbol,))
             conn.close()
             
-            if len(df) < 10:  # Need minimum trades for reliable calculation
+            if len(df) < 30:  # 30-trade minimum for statistically meaningful Kelly sizing
                 return 0.01  # Conservative 1% default
             
             # Calculate win rate and average win/loss
@@ -315,9 +315,9 @@ class AdvancedRiskManager:
         
         df = pd.read_sql_query(query, conn)
         
-        if len(df) < 10:
+        if len(df) < 30:  # 30-trade minimum for a meaningful volatility estimate
             return 0.0
-        
+
         returns = df['pnl']
         excess_returns = returns.mean() - (risk_free_rate / 252)  # Daily risk-free rate
         
