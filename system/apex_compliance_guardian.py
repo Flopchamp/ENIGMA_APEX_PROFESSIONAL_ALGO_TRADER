@@ -633,16 +633,11 @@ class ApexComplianceGuardian:
         settings = {
             'safety_ratio': self.safety_scale.get(),
             'platform': self.platform_var.get(),
-            'rules': {
-                'evaluation_target': self.rules.evaluation_target,
-                'evaluation_max_loss': self.rules.evaluation_max_loss,
-                'consistency_rule': self.rules.consistency_rule
-            }
         }
-        
+
         with open('apex_settings.json', 'w') as f:
             json.dump(settings, f, indent=2)
-            
+
         self.add_alert("💾 Settings saved successfully", "SUCCESS")
         
     def load_settings(self):

@@ -74,83 +74,71 @@ class PropFirmComplianceRules(ABC):
         """Check if proposed trade violates any rules"""
         pass
 
+# Apex Trader Funding 3.0 tier table.
+# Ordered by ascending max_account_size. To add a new account size add a dict — no code change needed.
+_APEX_TIERS: List[Dict] = [
+    {
+        "max_account_size": 25_000,
+        "daily_loss_limit": 1_000,
+        "max_loss_limit": 2_000,
+        "profit_target": 3_000,
+        "max_position_size": 5,
+        "max_contracts_per_side": 10,
+        "forbidden_instruments": ["CRYPTO", "PENNY_STOCKS", "OPTIONS"],
+        "weekend_holding_allowed": False,
+        "scaling_plan": {"phase1": 25_000, "phase2": 50_000, "phase3": 100_000},
+    },
+    {
+        "max_account_size": 50_000,
+        "daily_loss_limit": 2_000,
+        "max_loss_limit": 3_000,
+        "profit_target": 4_000,
+        "max_position_size": 7,
+        "max_contracts_per_side": 15,
+        "forbidden_instruments": ["CRYPTO", "PENNY_STOCKS"],
+        "weekend_holding_allowed": False,
+        "scaling_plan": {"current": 50_000, "next": 100_000},
+    },
+    {
+        "max_account_size": float("inf"),   # $100K+ — extend above this to add new tiers
+        "daily_loss_limit": 3_000,
+        "max_loss_limit": 5_000,
+        "profit_target": 6_000,
+        "max_position_size": 10,
+        "max_contracts_per_side": 20,
+        "forbidden_instruments": ["CRYPTO"],
+        "weekend_holding_allowed": True,
+        "scaling_plan": {"current": 100_000, "next": 200_000},
+    },
+]
+
 class ApexTraderFundingRules(PropFirmComplianceRules):
     """Apex Trader Funding compliance rules implementation"""
-    
+
+    _TRADING_HOURS = {"start": time(9, 30), "end": time(16, 0), "timezone": "EST"}
+
     def get_rules(self, account_size: float) -> PropFirmRules:
-        """Get Apex-specific rules based on account size"""
-        
-        # Apex Trader Funding 3.0 Rules
-        if account_size <= 25000:
-            return PropFirmRules(
-                firm_name="Apex Trader Funding",
-                account_size=account_size,
-                daily_loss_limit=1000,  # $1,000 daily loss limit
-                max_loss_limit=2000,    # $2,000 max loss limit
-                profit_target=3000,     # $3,000 profit target
-                max_position_size=5,    # 5 contracts max per position
-                forbidden_instruments=["CRYPTO", "PENNY_STOCKS", "OPTIONS"],
-                trading_hours={
-                    "start": time(9, 30),   # 9:30 AM EST
-                    "end": time(16, 0),     # 4:00 PM EST
-                    "timezone": "EST"
-                },
-                news_blackout_minutes=2,    # 2 minutes before/after major news
-                consistency_rule=True,      # Cannot make more than 30% of profits in a single day
-                max_contracts_per_side=10,  # Max 10 contracts per side
-                weekend_holding_allowed=False,
-                scaling_plan={
-                    "phase1": 25000,    # Evaluation
-                    "phase2": 50000,    # Funded
-                    "phase3": 100000    # Scaled
-                }
-            )
-        elif account_size <= 50000:
-            return PropFirmRules(
-                firm_name="Apex Trader Funding",
-                account_size=account_size,
-                daily_loss_limit=2000,
-                max_loss_limit=3000,
-                profit_target=4000,
-                max_position_size=7,
-                forbidden_instruments=["CRYPTO", "PENNY_STOCKS"],
-                trading_hours={
-                    "start": time(9, 30),
-                    "end": time(16, 0),
-                    "timezone": "EST"
-                },
-                news_blackout_minutes=2,
-                consistency_rule=True,
-                max_contracts_per_side=15,
-                weekend_holding_allowed=False,
-                scaling_plan={
-                    "current": 50000,
-                    "next": 100000
-                }
-            )
-        else:  # $100K+ accounts
-            return PropFirmRules(
-                firm_name="Apex Trader Funding",
-                account_size=account_size,
-                daily_loss_limit=3000,
-                max_loss_limit=5000,
-                profit_target=6000,
-                max_position_size=10,
-                forbidden_instruments=["CRYPTO"],
-                trading_hours={
-                    "start": time(9, 30),
-                    "end": time(16, 0),
-                    "timezone": "EST"
-                },
-                news_blackout_minutes=2,
-                consistency_rule=True,
-                max_contracts_per_side=20,
-                weekend_holding_allowed=True,
-                scaling_plan={
-                    "current": 100000,
-                    "next": 200000
-                }
-            )
+        """Get Apex-specific rules based on account size.
+
+        Tier selection is driven by _APEX_TIERS above — add a dict there to
+        support a new account size without touching this method.
+        """
+        tier = next(t for t in _APEX_TIERS if account_size <= t["max_account_size"])
+        return PropFirmRules(
+            firm_name="Apex Trader Funding",
+            account_size=account_size,
+            daily_loss_limit=tier["daily_loss_limit"],
+            max_loss_limit=tier["max_loss_limit"],
+            profit_target=tier["profit_target"],
+            max_position_size=tier["max_position_size"],
+            forbidden_instruments=tier["forbidden_instruments"],
+            trading_hours=self._TRADING_HOURS,
+            news_blackout_minutes=2,
+            consistency_rule=True,
+            max_contracts_per_side=tier["max_contracts_per_side"],
+            weekend_holding_allowed=tier["weekend_holding_allowed"],
+            scaling_plan=tier["scaling_plan"],
+        )
     
     def check_compliance(self, trade_data: Dict, account_data: Dict) -> List[ComplianceViolation]:
         """Check Apex-specific compliance rules"""
@@ -235,51 +223,36 @@ class ApexTraderFundingRules(PropFirmComplianceRules):
         
         return violations
 
+# FTMO tier table — ordered by ascending max_account_size.
+_FTMO_TIERS: List[Dict] = [
+    {"max_account_size": 10_000,       "daily_loss_limit": 500,   "max_loss_limit": 1_000,  "profit_target": 1_000},
+    {"max_account_size": 25_000,       "daily_loss_limit": 1_250, "max_loss_limit": 2_500,  "profit_target": 2_500},
+    {"max_account_size": 50_000,       "daily_loss_limit": 2_500, "max_loss_limit": 5_000,  "profit_target": 5_000},
+    {"max_account_size": float("inf"), "daily_loss_limit": 5_000, "max_loss_limit": 10_000, "profit_target": 10_000},
+]
+
 class FTMORules(PropFirmComplianceRules):
     """FTMO compliance rules implementation"""
-    
+
+    _TRADING_HOURS = {"start": time(0, 0), "end": time(23, 59), "timezone": "GMT"}  # 24/5
+
     def get_rules(self, account_size: float) -> PropFirmRules:
-        """Get FTMO-specific rules"""
-        
-        if account_size <= 10000:
-            daily_loss = 500
-            max_loss = 1000
-            profit_target = 1000
-        elif account_size <= 25000:
-            daily_loss = 1250
-            max_loss = 2500
-            profit_target = 2500
-        elif account_size <= 50000:
-            daily_loss = 2500
-            max_loss = 5000
-            profit_target = 5000
-        else:  # $100K+
-            daily_loss = 5000
-            max_loss = 10000
-            profit_target = 10000
-        
+        """Get FTMO-specific rules. Tier selection is driven by _FTMO_TIERS above."""
+        tier = next(t for t in _FTMO_TIERS if account_size <= t["max_account_size"])
         return PropFirmRules(
             firm_name="FTMO",
             account_size=account_size,
-            daily_loss_limit=daily_loss,
-            max_loss_limit=max_loss,
-            profit_target=profit_target,
-            max_position_size=2.0,  # 2% risk per trade
+            daily_loss_limit=tier["daily_loss_limit"],
+            max_loss_limit=tier["max_loss_limit"],
+            profit_target=tier["profit_target"],
+            max_position_size=2.0,
             forbidden_instruments=["CRYPTO", "EXOTIC_PAIRS"],
-            trading_hours={
-                "start": time(0, 0),    # 24/5 trading
-                "end": time(23, 59),
-                "timezone": "GMT"
-            },
+            trading_hours=self._TRADING_HOURS,
             news_blackout_minutes=2,
-            consistency_rule=False,  # FTMO doesn't have consistency rule
-            max_contracts_per_side=999,  # Based on 2% risk rule
+            consistency_rule=False,
+            max_contracts_per_side=999,
             weekend_holding_allowed=True,
-            scaling_plan={
-                "challenge": account_size,
-                "verification": account_size,
-                "funded": account_size
-            }
+            scaling_plan={"challenge": account_size, "verification": account_size, "funded": account_size},
         )
     
     def check_compliance(self, trade_data: Dict, account_data: Dict) -> List[ComplianceViolation]:
