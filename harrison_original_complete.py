@@ -685,6 +685,33 @@ class NinjaTraderConnector:
         except Exception as e:
             logging.error(f"NinjaTrader socket connection failed: {e}")
             return False
+
+    def _send_command(self, command: str, timeout: float = 5.0) -> str:
+        """Send a text command to the NT8 socket adapter and return the raw response."""
+        if not self.is_connected or self.connection is None:
+            raise ConnectionError("NinjaTrader socket is not connected")
+        try:
+            self.connection.settimeout(timeout)
+            self.connection.sendall(command.encode('utf-8'))
+            chunks = []
+            while True:
+                chunk = self.connection.recv(4096)
+                if not chunk:
+                    break
+                chunks.append(chunk.decode('utf-8'))
+                # NT8 adapter terminates responses with '|'
+                if chunks[-1].endswith('|'):
+                    break
+            response = ''.join(chunks).rstrip('|').strip()
+            return response
+        except socket.timeout:
+            logging.error(f"NT8 socket timed out waiting for response to: {command!r}")
+            self.is_connected = False
+            raise
+        except OSError as e:
+            logging.error(f"NT8 socket error on command {command!r}: {e}")
+            self.is_connected = False
+            raise
     
     def connect_via_atm(self) -> bool:
         """Connect via NinjaTrader ATM strategies"""
@@ -707,44 +734,66 @@ class NinjaTraderConnector:
         return False
     
     def get_account_info(self) -> Dict[str, float]:
-        """Get real account information from NinjaTrader"""
+        """Get real account information from NinjaTrader.
+
+        Sends "ACCOUNT|" to the NT8 socket adapter and parses the
+        semicolon-delimited key=value response, e.g.:
+            buying_power=50000.00;cash_value=49800.00;...
+        """
         if not self.is_connected:
             return {}
-            
         try:
-            # This would send actual commands to NT8
-            # For now, return structure for real implementation
-            account_info = {
-                'buying_power': 0.0,
-                'cash_value': 0.0,
-                'day_trading_buying_power': 0.0,
-                'initial_margin': 0.0,
-                'maintenance_margin': 0.0,
-                'net_liquidation': 0.0,
-                'unrealized_pnl': 0.0,
-                'realized_pnl': 0.0
-            }
-            
-            # TODO: Implement actual NT8 command communication
-            # Command format: "ACCOUNT;<account_name>|"
-            
+            response = self._send_command("ACCOUNT|")
+            account_info: Dict[str, float] = {}
+            for pair in response.split(';'):
+                if '=' not in pair:
+                    continue
+                key, _, raw_val = pair.partition('=')
+                key = key.strip().lower().replace(' ', '_')
+                try:
+                    account_info[key] = float(raw_val.strip())
+                except ValueError:
+                    pass  # skip non-numeric fields
+            self.account_data = account_info
             return account_info
         except Exception as e:
             logging.error(f"Error getting NT account info: {e}")
             return {}
-    
+
     def get_positions(self) -> Dict[str, Dict[str, float]]:
-        """Get current positions from NinjaTrader"""
+        """Get current positions from NinjaTrader.
+
+        Sends "POSITIONS|" to the NT8 socket adapter and parses the
+        newline-separated response where each line is semicolon-delimited
+        key=value pairs and must include a SYMBOL key, e.g.:
+            SYMBOL=ES;qty=1;avg_price=4500.00;unrealized_pnl=125.00
+        """
         if not self.is_connected:
             return {}
-            
         try:
-            # TODO: Implement actual position retrieval
-            # Command format: "POSITIONS|"
-            positions = {}
+            response = self._send_command("POSITIONS|")
+            positions: Dict[str, Dict[str, float]] = {}
+            for line in response.splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                parts: Dict[str, str] = {}
+                for pair in line.split(';'):
+                    if '=' in pair:
+                        k, _, v = pair.partition('=')
+                        parts[k.strip().lower()] = v.strip()
+                symbol = parts.pop('symbol', None)
+                if symbol:
+                    positions[symbol] = {}
+                    for k, v in parts.items():
+                        try:
+                            positions[symbol][k] = float(v)
+                        except ValueError:
+                            pass
+            self.position_data = positions
             return positions
         except Exception as e:
-            logging.error(f"Error getting positions: {e}")
+            logging.error(f"Error getting NT positions: {e}")
             return {}
 
 class TradovateConnector:
@@ -2671,9 +2720,65 @@ class TrainingWheelsDashboard:
                 help="Where NinjaScript will write data files"
             )
             
-            if st.button("📥 Download NinjaScript Files", use_container_width=True):
-                st.info("NinjaScript addon files would be generated and downloaded here")
-                # TODO: Generate actual NinjaScript .cs files
+            ninja_script_template = f'''// EnigmaApexDataExporter.cs
+// Auto-generated by ENIGMA APEX — place in:
+//   Documents\\NinjaTrader 8\\bin\\Custom\\Indicators\\
+// Then compile via NinjaScript Editor and add to your chart.
+
+using System;
+using System.IO;
+using NinjaTrader.Cbi;
+using NinjaTrader.NinjaScript;
+using Newtonsoft.Json;
+
+namespace NinjaTrader.NinjaScript.Indicators
+{{
+    public class EnigmaApexDataExporter : Indicator
+    {{
+        private string exportPath = @"{export_path}";
+
+        protected override void OnStateChange()
+        {{
+            if (State == State.SetDefaults)
+            {{
+                Name = "EnigmaApexDataExporter";
+                Description = "Exports OHLCV + account data for ENIGMA APEX";
+                Calculate = Calculate.OnBarClose;
+                IsOverlay = true;
+            }}
+        }}
+
+        protected override void OnBarUpdate()
+        {{
+            if (CurrentBar < 1) return;
+            var payload = new {{
+                symbol    = Instrument.FullName,
+                timestamp = Time[0].ToString("o"),
+                open      = Open[0],
+                high      = High[0],
+                low       = Low[0],
+                close     = Close[0],
+                volume    = Volume[0],
+                account   = new {{
+                    buying_power      = Account.Get(AccountItem.BuyingPower, Currency.UsDollar),
+                    cash_value        = Account.Get(AccountItem.CashValue, Currency.UsDollar),
+                    net_liquidation   = Account.Get(AccountItem.NetLiquidation, Currency.UsDollar),
+                    realized_pnl      = Account.Get(AccountItem.RealizedProfitLoss, Currency.UsDollar),
+                    unrealized_pnl    = Account.Get(AccountItem.UnrealizedProfitLoss, Currency.UsDollar)
+                }}
+            }};
+            File.WriteAllText(exportPath, JsonConvert.SerializeObject(payload, Formatting.Indented));
+        }}
+    }}
+}}
+'''
+            st.download_button(
+                label="📥 Download NinjaScript File",
+                data=ninja_script_template,
+                file_name="EnigmaApexDataExporter.cs",
+                mime="text/plain",
+                use_container_width=True,
+            )
                 
             if st.button("Test File Connection", use_container_width=True):
                 if os.path.exists(export_path):
