@@ -4,10 +4,9 @@ Real-time OCR signal reading for Streamlit trading dashboard
 Configurable for any number of charts and any screen layout
 """
 
+import os
 import streamlit as st
-import cv2
 import numpy as np
-import pytesseract
 from PIL import Image, ImageGrab
 import json
 import threading
@@ -18,13 +17,15 @@ from dataclasses import dataclass, asdict
 import base64
 import io
 
-# Configure OCR path - this should be auto-detected or configurable
 try:
+    import cv2
     import pytesseract
-    # Try to auto-detect tesseract
-    pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+    # Override with TESSERACT_CMD env var if Tesseract is installed elsewhere
+    pytesseract.pytesseract.tesseract_cmd = os.environ.get(
+        'TESSERACT_CMD', r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+    )
 except ImportError:
-    st.error("❌ pytesseract not installed. Please install: pip install pytesseract")
+    st.error("pytesseract not installed. Please install: pip install pytesseract")
 
 @dataclass
 class OCRRegion:

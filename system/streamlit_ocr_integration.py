@@ -4,6 +4,7 @@ OCR coordinator integrated with Streamlit dashboard for real-time chart reading
 Universal system for any trading setup with AlgoBox or similar OCR sources
 """
 
+import os
 import streamlit as st
 import cv2
 import numpy as np
@@ -57,7 +58,7 @@ class StreamlitOCRCoordinator:
         
         # OCR settings
         self.ocr_config = {
-            "tesseract_cmd": r'C:\Program Files\Tesseract-OCR\tesseract.exe',
+            "tesseract_cmd": os.environ.get('TESSERACT_CMD', r'C:\Program Files\Tesseract-OCR\tesseract.exe'),
             "confidence_threshold": 60,
             "power_score_config": r'--oem 3 --psm 8 -c tessedit_char_whitelist=0123456789',
             "text_config": r'--oem 3 --psm 6'

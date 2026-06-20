@@ -4,6 +4,7 @@ Handles OCR reading from 6 AlgoBox charts simultaneously
 Designed for Michael's 6-chart trading setup
 """
 
+import os
 import cv2
 import numpy as np
 import pytesseract
@@ -17,8 +18,10 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 import logging
 
-# Configure OCR path (adjust for your system)
-pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+# Configure OCR path — override with TESSERACT_CMD env var if Tesseract is installed elsewhere
+pytesseract.pytesseract.tesseract_cmd = os.environ.get(
+    'TESSERACT_CMD', r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+)
 
 @dataclass
 class ChartSignal:
