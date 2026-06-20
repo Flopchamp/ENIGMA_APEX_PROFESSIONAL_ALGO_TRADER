@@ -89,7 +89,7 @@ class WebSocketMessage:
                         timestamp = datetime.fromisoformat(data['timestamp'].replace('Z', '+00:00'))
                     else:
                         timestamp = datetime.fromtimestamp(data['timestamp'])
-                except:
+                except (ValueError, TypeError):
                     timestamp = datetime.now()
             
             return cls(

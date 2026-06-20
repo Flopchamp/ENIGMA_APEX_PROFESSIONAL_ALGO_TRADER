@@ -86,8 +86,8 @@ class NinjaTraderTradovateDashboard:
                 layout="wide",
                 initial_sidebar_state="expanded"
             )
-        except:
-            pass  # Page config already set
+        except Exception:
+            pass  # st.set_page_config raises if called more than once per session
         
         # Enhanced CSS for professional trading dashboard
         st.markdown("""
@@ -194,9 +194,9 @@ class NinjaTraderTradovateDashboard:
                         connection_status = "Connected"
                         market_data_status = "Connected"
                     sock.close()
-                except:
+                except OSError:
                     pass
-                
+
                 # Method 3: Check for NinjaTrader files/registry
                 import os
                 nt8_path = os.path.expanduser("~\\Documents\\NinjaTrader 8")

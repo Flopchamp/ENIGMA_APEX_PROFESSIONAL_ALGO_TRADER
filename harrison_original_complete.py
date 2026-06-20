@@ -970,8 +970,8 @@ class TrainingWheelsDashboard:
                 layout="wide",
                 initial_sidebar_state="expanded"
             )
-        except:
-            pass
+        except Exception:
+            pass  # st.set_page_config raises if called more than once per session
         
         # Professional blue design for prop firm environment
         st.markdown("""

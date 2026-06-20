@@ -167,7 +167,7 @@ class PCTroubleshooter:
                 else:
                     print("   ⚠️  Not running as Administrator")
                     print("      (May be needed for some operations)")
-            except:
+            except Exception:
                 print("   ⚠️  Cannot determine admin status")
     
     def suggest_python_fix(self):

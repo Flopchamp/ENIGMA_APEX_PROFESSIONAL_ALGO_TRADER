@@ -315,7 +315,7 @@ class SecureCredentialManager:
                 encrypted = self.cipher_suite.encrypt(test_data.encode())
                 decrypted = self.cipher_suite.decrypt(encrypted).decode()
                 tests["encryption_cycle"] = (test_data == decrypted)
-            except:
+            except Exception:
                 tests["encryption_cycle"] = False
             
             self.logger.info(f"Security test results: {tests}")

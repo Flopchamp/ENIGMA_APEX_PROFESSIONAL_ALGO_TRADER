@@ -67,8 +67,8 @@ class StreamlitOCRCoordinator:
         # Try to set tesseract path
         try:
             pytesseract.pytesseract.tesseract_cmd = self.ocr_config["tesseract_cmd"]
-        except:
-            pass  # Will handle missing tesseract gracefully
+        except Exception:
+            pass  # pytesseract not installed; OCR features will be unavailable
     
     def initialize_session_state(self):
         """Initialize Streamlit session state for OCR"""
@@ -536,7 +536,7 @@ class StreamlitOCRCoordinator:
                             img_data = base64.b64decode(signal.raw_image_data)
                             img = Image.open(BytesIO(img_data))
                             st.image(img, caption=f"Chart {chart_id}", width=150)
-                        except:
+                        except Exception:
                             pass
 
 def main():

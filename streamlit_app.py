@@ -1050,7 +1050,7 @@ class AlgoTraderSignalReader:
         if self.signal_sources["tcp_socket"]["enabled"] and self.signal_sources["tcp_socket"].get("socket"):
             try:
                 self.signal_sources["tcp_socket"]["socket"].close()
-            except:
+            except OSError:
                 pass
         
         logging.info("AlgoTrader signal monitoring stopped")
@@ -1270,8 +1270,8 @@ class AlgoTraderSignalReader:
             
             # If all else fails, try to parse as float (Unix timestamp)
             return datetime.fromtimestamp(float(timestamp_str))
-            
-        except:
+
+        except (ValueError, TypeError):
             return datetime.now()
     
     def _process_new_signal(self, signal: Dict[str, Any]):
@@ -3147,7 +3147,7 @@ class TrainingWheelsDashboard:
                     st.metric("CPU Usage", f"{cpu_percent:.1f}%")
                 with col2:
                     st.metric("Memory Usage", f"{memory_percent:.1f}%")
-            except:
+            except Exception:
                 st.info("System metrics unavailable")
     
     def render_connection_setup_modal(self):

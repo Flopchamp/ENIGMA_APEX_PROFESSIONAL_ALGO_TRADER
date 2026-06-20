@@ -98,7 +98,7 @@ def main():
     try:
         webbrowser.open("http://localhost:5000")
         print("   ✅ Browser opened to trading interface")
-    except:
+    except Exception:
         print("   💡 Please manually open: http://localhost:5000")
     
     print()
@@ -145,7 +145,7 @@ def main():
             try:
                 process.terminate()
                 print(f"   ✅ Stopped {name}")
-            except:
+            except Exception:
                 print(f"   ⚠️  Could not stop {name}")
         print("🏁 System shutdown complete")
 
