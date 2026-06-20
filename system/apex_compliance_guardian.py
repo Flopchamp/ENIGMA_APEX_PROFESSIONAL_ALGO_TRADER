@@ -75,14 +75,8 @@ class ApexComplianceGuardian:
         self.violations = []
         self.alerts = []
         self.is_monitoring = False
-        
-        # Setup logging
-        logging.basicConfig(
-            filename='apex_compliance.log',
-            level=logging.INFO,
-            format='%(asctime)s - %(levelname)s - %(message)s'
-        )
-        
+        self.logger = logging.getLogger(__name__)
+
         # Load settings
         self.load_settings()
         
@@ -589,7 +583,7 @@ class ApexComplianceGuardian:
                 self.status_labels['next_reset'].config(text="None")
                 
         except Exception as e:
-            print(f"GUI update error: {e}")
+            self.logger.error("GUI update error: %s", e)
             
     def add_alert(self, message, level="INFO"):
         """Add alert to the log"""

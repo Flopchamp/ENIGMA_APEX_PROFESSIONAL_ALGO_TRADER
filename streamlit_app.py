@@ -32,6 +32,8 @@ import subprocess
 import urllib.request
 import urllib.error
 import logging
+from enigma_logging import configure_logging
+configure_logging()
 from datetime import datetime, timedelta
 from dataclasses import dataclass, asdict, field
 from typing import Dict, List, Optional, Any

@@ -5,6 +5,7 @@ First Principles AI Enhancement for Michael Canfield's Vision
 
 import asyncio
 import json
+import logging
 import sqlite3
 from datetime import datetime
 from collections import deque
@@ -18,6 +19,7 @@ class FirstPrinciplesAI:
     """
     
     def __init__(self):
+        self.logger = logging.getLogger(__name__ + ".FirstPrinciplesAI")
         self.trade_history = deque(maxlen=100)  # Rolling 100 trades
         self.first_principles = {
             "risk_management": {
@@ -123,10 +125,10 @@ class FirstPrinciplesAI:
             ''')
             
             self.db_connection.commit()
-            print("✅ AI Analytics database initialized successfully")
-            
+            self.logger.info("AI Analytics database initialized")
+
         except Exception as e:
-            print(f"❌ Failed to initialize AI database: {e}")
+            self.logger.error("Failed to initialize AI database: %s", e)
     
     def analyze_first_principles(self, trade_data: Dict) -> Dict:
         """
@@ -294,7 +296,7 @@ class FirstPrinciplesAI:
             ))
             self.db_connection.commit()
         except Exception as e:
-            print(f"❌ Failed to store AI insights: {e}")
+            self.logger.error("Failed to store AI insights: %s", e)
     
     def update_performance_metrics(self, trade_outcome: Dict):
         """Update performance metrics based on trade outcome"""
@@ -326,7 +328,7 @@ class FirstPrinciplesAI:
             ))
             self.db_connection.commit()
         except Exception as e:
-            print(f"❌ Failed to store trade performance: {e}")
+            self.logger.error("Failed to store trade performance: %s", e)
     
     def generate_optimization_insights(self) -> Dict:
         """Generate optimization insights based on historical performance"""
@@ -372,7 +374,7 @@ class FirstPrinciplesAI:
                     )
             
         except Exception as e:
-            print(f"❌ Failed to generate optimization insights: {e}")
+            self.logger.error("Failed to generate optimization insights: %s", e)
         
         return insights
     
@@ -440,6 +442,7 @@ class EnigmaApexAIAgent:
     """
     
     def __init__(self):
+        self.logger = logging.getLogger(__name__ + ".EnigmaApexAIAgent")
         self.ai_engine = FirstPrinciplesAI()
         self.kelly_engine = KellyOptimizationEngine()
         self.is_running = False
@@ -465,7 +468,7 @@ class EnigmaApexAIAgent:
             return half_kelly
             
         except Exception as e:
-            print(f"Kelly calculation error: {e}")
+            self.logger.error("Kelly calculation error: %s", e)
             return 0.01
     
     def analyze_first_principles(self, market_data: Dict) -> Dict:
@@ -488,7 +491,7 @@ class EnigmaApexAIAgent:
             return analysis
             
         except Exception as e:
-            print(f"First principles analysis error: {e}")
+            self.logger.error("First principles analysis error: %s", e)
             return {'error': str(e), 'recommendation': 'HOLD'}
     
     def analyze_enigma_signal(self, signal_data: Dict) -> Dict:
@@ -520,7 +523,7 @@ class EnigmaApexAIAgent:
             return analysis
             
         except Exception as e:
-            print(f"Enigma signal analysis error: {e}")
+            self.logger.error("Enigma signal analysis error: %s", e)
             return {'error': str(e), 'trade_recommendation': 'HOLD'}
     
     def real_time_guidance(self, market_conditions: Dict) -> Dict:
@@ -549,7 +552,7 @@ class EnigmaApexAIAgent:
             return guidance
             
         except Exception as e:
-            print(f"Real-time guidance error: {e}")
+            self.logger.error("Real-time guidance error: %s", e)
             return {'error': str(e), 'action': 'MONITOR'}
     
     def _assess_risk_principles(self, data: Dict) -> Dict:
@@ -566,16 +569,17 @@ class EnigmaApexAIAgent:
 
 class KellyOptimizationEngine:
     """Kelly Criterion optimization engine"""
-    
+
     def __init__(self):
+        self.logger = logging.getLogger(__name__ + ".KellyOptimizationEngine")
         self.history = deque(maxlen=100)
         self.base_win_rate = 0.5
+        self.is_running = False
     
     async def start_ai_agent(self):
         """Start the AI agent for continuous analysis"""
         self.is_running = True
-        print("🤖 Enigma-Apex AI Agent started")
-        print("🎯 Applying first principles for profit maximization and loss minimization")
+        self.logger.info("AI Agent started — applying first principles")
         
         while self.is_running:
             try:
@@ -584,7 +588,7 @@ class KellyOptimizationEngine:
                 await asyncio.sleep(1)  # Check every second
                 
             except Exception as e:
-                print(f"❌ AI Agent error: {e}")
+                self.logger.error("AI Agent error: %s", e)
                 await asyncio.sleep(5)
     
     def analyze_trade_opportunity(self, trade_data: Dict) -> Dict:
@@ -602,7 +606,7 @@ class KellyOptimizationEngine:
     def stop_ai_agent(self):
         """Stop the AI agent"""
         self.is_running = False
-        print("🛑 Enigma-Apex AI Agent stopped")
+        self.logger.info("AI Agent stopped")
 
 # Example usage and testing
 def test_ai_agent():
