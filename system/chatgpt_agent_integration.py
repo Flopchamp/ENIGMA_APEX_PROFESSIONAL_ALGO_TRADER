@@ -11,6 +11,15 @@ from datetime import datetime
 from collections import deque
 import numpy as np
 from typing import Dict, List, Optional, Tuple
+from enigma_config import (
+    KELLY_FRACTION_CAP,
+    ATR_STOP_LOSS_MULTIPLE,
+    ATR_PROFIT_TARGET_MULTIPLE,
+    MIN_POWER_SCORE,
+    CADENCE_THRESHOLD_AM,
+    CADENCE_THRESHOLD_PM,
+    MIN_VOLUME_SURGE,
+)
 
 class FirstPrinciplesAI:
     """
@@ -23,17 +32,17 @@ class FirstPrinciplesAI:
         self.trade_history = deque(maxlen=100)  # Rolling 100 trades
         self.first_principles = {
             "risk_management": {
-                "max_risk_per_trade": 0.01,  # 1% max risk
-                "daily_loss_limit": 0.04,    # 4% daily limit
-                "stop_loss_atr_multiple": 1.5,
-                "profit_target_atr_multiple": 2.0
+                "max_risk_per_trade": 0.01,
+                "daily_loss_limit": 0.04,
+                "stop_loss_atr_multiple": ATR_STOP_LOSS_MULTIPLE,
+                "profit_target_atr_multiple": ATR_PROFIT_TARGET_MULTIPLE,
             },
             "edge_identification": {
                 "min_confluence_level": "L3",
-                "min_power_score": 15,
-                "cadence_threshold_am": 2,   # 2 failures AM
-                "cadence_threshold_pm": 3,   # 3 failures PM
-                "min_volume_surge": 1.5      # 1.5x average volume
+                "min_power_score": MIN_POWER_SCORE,
+                "cadence_threshold_am": CADENCE_THRESHOLD_AM,
+                "cadence_threshold_pm": CADENCE_THRESHOLD_PM,
+                "min_volume_surge": MIN_VOLUME_SURGE,
             },
             "loss_minimization": {
                 "immediate_exit_conditions": [
@@ -406,8 +415,8 @@ class FirstPrinciplesAI:
             # ATR-based stops and targets
             atr_value = current_market_data.get("atr", 0)
             if atr_value > 0:
-                guidance["stop_loss_suggestion"] = atr_value * 1.5
-                guidance["profit_target_suggestion"] = atr_value * 2.0
+                guidance["stop_loss_suggestion"] = atr_value * ATR_STOP_LOSS_MULTIPLE
+                guidance["profit_target_suggestion"] = atr_value * ATR_PROFIT_TARGET_MULTIPLE
         
         return guidance
     
@@ -417,15 +426,15 @@ class FirstPrinciplesAI:
         
         # Calculate R:R ratio from ATR-based targets
         atr_value = market_data.get("atr", 1.0)
-        stop_loss = atr_value * 1.5
-        profit_target = atr_value * 2.0
+        stop_loss = atr_value * ATR_STOP_LOSS_MULTIPLE
+        profit_target = atr_value * ATR_PROFIT_TARGET_MULTIPLE
         rr_ratio = profit_target / stop_loss if stop_loss > 0 else 2.0
         
         # Kelly formula: f = (bp - q) / b
         # where b = reward/risk ratio, p = win probability, q = loss probability
         kelly_fraction = (rr_ratio * win_rate - (1 - win_rate)) / rr_ratio
         
-        return max(0, min(0.25, kelly_fraction))  # Cap at 25%
+        return max(0, min(KELLY_FRACTION_CAP, kelly_fraction))
 
 # Create alias for compatibility with validator
 ChatGPTAgentIntegration = 'EnigmaApexAIAgent'
@@ -461,8 +470,8 @@ class EnigmaApexAIAgent:
             
             kelly_fraction = (b * p - q) / b
             
-            # Apply safety constraints (Half-Kelly + max 25%)
-            kelly_fraction = max(0, min(kelly_fraction, 0.25))
+            # Apply safety constraints (Half-Kelly)
+            kelly_fraction = max(0, min(kelly_fraction, KELLY_FRACTION_CAP))
             half_kelly = kelly_fraction / 2
             
             return half_kelly

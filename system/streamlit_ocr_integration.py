@@ -18,6 +18,7 @@ from datetime import datetime
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 import logging
+from enigma_config import OCR_ACTIVATION_PIXEL_THRESHOLD, OCR_CONFIDENCE_THRESHOLD
 import base64
 from io import BytesIO
 
@@ -59,7 +60,7 @@ class StreamlitOCRCoordinator:
         # OCR settings
         self.ocr_config = {
             "tesseract_cmd": os.environ.get('TESSERACT_CMD', r'C:\Program Files\Tesseract-OCR\tesseract.exe'),
-            "confidence_threshold": 60,
+            "confidence_threshold": OCR_CONFIDENCE_THRESHOLD,
             "power_score_config": r'--oem 3 --psm 8 -c tessedit_char_whitelist=0123456789',
             "text_config": r'--oem 3 --psm 6'
         }
@@ -241,7 +242,7 @@ class StreamlitOCRCoordinator:
                 mask = cv2.inRange(hsv, lower_np, upper_np)
                 pixel_count = np.sum(mask)
                 
-                if pixel_count > max_pixels and pixel_count > 100:  # Minimum threshold
+                if pixel_count > max_pixels and pixel_count > OCR_ACTIVATION_PIXEL_THRESHOLD:
                     max_pixels = pixel_count
                     detected_color = color_name
             

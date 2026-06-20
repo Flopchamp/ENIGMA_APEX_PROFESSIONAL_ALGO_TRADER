@@ -17,6 +17,7 @@ from datetime import datetime
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 import logging
+from enigma_config import OCR_ACTIVATION_PIXEL_THRESHOLD
 
 # Configure OCR path — override with TESSERACT_CMD env var if Tesseract is installed elsewhere
 pytesseract.pytesseract.tesseract_cmd = os.environ.get(
@@ -284,7 +285,7 @@ class MultiChartOCRCoordinator:
                 green_mask = cv2.inRange(hsv, green_lower, green_upper)
                 
                 # If green pixels found, this level is active
-                if np.sum(green_mask) > 100:  # Threshold for activation
+                if np.sum(green_mask) > OCR_ACTIVATION_PIXEL_THRESHOLD:
                     active_level = level
             
             return active_level

@@ -13,6 +13,7 @@ from dataclasses import dataclass
 import pandas as pd
 import numpy as np
 from pathlib import Path
+from enigma_config import KELLY_FRACTION_CAP
 
 @dataclass
 class RiskMetrics:
@@ -172,8 +173,8 @@ class AdvancedRiskManager:
             kelly_fraction = (b * p - q) / b
             
             # Apply safety constraints
-            kelly_fraction = max(0, min(kelly_fraction, 0.25))  # Cap at 25%
-            
+            kelly_fraction = max(0, min(kelly_fraction, KELLY_FRACTION_CAP))
+
             return kelly_fraction
             
         except Exception as e:
@@ -199,8 +200,8 @@ class AdvancedRiskManager:
         # Kelly formula: (win_rate * avg_win - (1 - win_rate) * avg_loss) / avg_win
         kelly_fraction = (win_rate * avg_win - (1 - win_rate) * avg_loss) / avg_win
         
-        # Apply safety constraints (Half-Kelly + max 25%)
-        kelly_fraction = max(0, min(kelly_fraction, 0.25))
+        # Apply safety constraints (Half-Kelly)
+        kelly_fraction = max(0, min(kelly_fraction, KELLY_FRACTION_CAP))
         half_kelly = kelly_fraction / 2
         
         # Store in history if available (FIX for Kelly history tracking)
