@@ -894,15 +894,16 @@ class NinjaTraderConnector:
             self.is_connected = False
             return False
             
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-            self.socket_connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.socket_connection.connect((host, port))
+            sock.connect((host, port))
+            self.socket_connection = sock
             self.is_connected = True
             self.host = host
             self.port = port
             return True
         except Exception as e:
-            # Only log errors in desktop environments
+            sock.close()
             if not is_cloud_environment:
                 logging.error(f"NinjaTrader socket connection failed: {e}")
             self.is_connected = False
