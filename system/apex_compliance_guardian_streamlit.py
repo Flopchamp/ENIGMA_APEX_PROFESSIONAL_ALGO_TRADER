@@ -1775,7 +1775,7 @@ def main():
         guardian.check_compliance()
         
         # Auto-refresh every 2 seconds
-        time.sleep(0.1)
+        time.sleep(2)
         st.rerun()
     
     # Create sidebar
@@ -2023,7 +2023,7 @@ def main():
         guardian.check_compliance()
         
         # Auto-refresh every 2 seconds
-        time.sleep(0.1)
+        time.sleep(2)
         st.rerun()
     
     # Create sidebar
