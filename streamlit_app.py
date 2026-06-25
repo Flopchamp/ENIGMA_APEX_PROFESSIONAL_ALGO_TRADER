@@ -543,8 +543,8 @@ class NotificationManager:
     def acknowledge_all_notifications(self):
         """Mark all notifications as acknowledged"""
         for notification in self.notification_history:
-            notification["acknowledged"] = False
-    
+            notification["acknowledged"] = True
+
     def get_notification_summary(self) -> Dict[str, int]:
         """Get summary of notification counts by type"""
         summary = {}
