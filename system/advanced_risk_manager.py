@@ -230,7 +230,8 @@ class AdvancedRiskManager:
             # Get account balance (latest)
             cursor = conn.cursor()
             cursor.execute('SELECT MAX(account_balance) FROM system_metrics')
-            account_balance = cursor.fetchone()[0] or 10000  # Default $10k
+            row = cursor.fetchone()
+            account_balance = (row[0] or 10000) if row else 10000  # Default $10k
             
             # Calculate P&L periods
             daily_pnl = self._calculate_period_pnl(conn, days=1)
@@ -282,8 +283,8 @@ class AdvancedRiskManager:
         
         cursor = conn.cursor()
         cursor.execute(query)
-        result = cursor.fetchone()[0]
-        return result or 0.0
+        row = cursor.fetchone()
+        return (row[0] or 0.0) if row else 0.0
     
     def _calculate_drawdown(self, conn) -> tuple:
         """Calculate maximum and current drawdown"""
@@ -298,9 +299,10 @@ class AdvancedRiskManager:
         if len(df) == 0:
             return 0.0, 0.0
         
-        # Calculate running maximum
+        # Calculate running maximum — replace 0 with NaN to avoid divide-by-zero
         running_max = df['cumulative_pnl'].expanding().max()
-        drawdown = (df['cumulative_pnl'] - running_max) / running_max * 100
+        running_max_safe = running_max.replace(0, float('nan'))
+        drawdown = (df['cumulative_pnl'] - running_max) / running_max_safe * 100
         
         max_drawdown = abs(drawdown.min())
         current_drawdown = abs(drawdown.iloc[-1])
@@ -340,11 +342,12 @@ class AdvancedRiskManager:
         
         cursor = conn.cursor()
         cursor.execute(query)
-        wins, total = cursor.fetchone()
-        
+        row = cursor.fetchone()
+        wins, total = row if row else (0, 0)
+
         if total == 0:
             return 0.0
-        
+
         return (wins / total) * 100
     
     def _calculate_risk_score(self, drawdown: float, daily_pnl: float, 
