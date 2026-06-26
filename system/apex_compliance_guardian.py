@@ -482,7 +482,7 @@ class ApexComplianceGuardian:
             current_drawdown = account_data.get('current_drawdown', 0.0)
             
             # Check against Apex 3.0 rules
-            max_drawdown = self.apex_rules.evaluation_trailing_threshold
+            max_drawdown = self.rules.evaluation_trailing_threshold
             
             if current_drawdown >= max_drawdown:
                 violation = {
