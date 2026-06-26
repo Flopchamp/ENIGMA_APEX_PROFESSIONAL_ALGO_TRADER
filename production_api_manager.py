@@ -171,7 +171,11 @@ class TradovateAPI(TradingPlatform):
                 self.logger.error(f"Authentication failed: {auth_response.text}")
                 return False
             
-            self.access_token = auth_response.json()["accessToken"]
+            token = auth_response.json().get("accessToken")
+            if not token:
+                self.logger.error(f"Auth response missing accessToken: {auth_response.text}")
+                return False
+            self.access_token = token
             self.logger.info("Tradovate authentication successful")
             
             # Step 2: Establish WebSocket connection
