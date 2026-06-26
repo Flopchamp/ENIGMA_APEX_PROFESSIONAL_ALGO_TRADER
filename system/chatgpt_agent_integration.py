@@ -436,6 +436,14 @@ class FirstPrinciplesAI:
         
         return max(0, min(KELLY_FRACTION_CAP, kelly_fraction))
 
+    def close(self):
+        if self.db_connection:
+            self.db_connection.close()
+            self.db_connection = None
+
+    def __del__(self):
+        self.close()
+
 # Create alias for compatibility with validator
 ChatGPTAgentIntegration = 'EnigmaApexAIAgent'
 
@@ -584,6 +592,7 @@ class KellyOptimizationEngine:
         self.history = deque(maxlen=100)
         self.base_win_rate = 0.5
         self.is_running = False
+        self.ai_engine = FirstPrinciplesAI()
     
     async def start_ai_agent(self):
         """Start the AI agent for continuous analysis"""
