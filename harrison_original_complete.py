@@ -122,27 +122,6 @@ class TradovateAccount:
     erm_last_calculation: Optional['ERMCalculation'] = None
     price_history: List[float] = field(default_factory=list)
     time_history: List[datetime] = field(default_factory=list)
-    """Individual Tradovate account (Harrison's chart equivalent)"""
-    chart_id: int
-    account_name: str
-    account_balance: float
-    daily_pnl: float
-    margin_used: float
-    margin_remaining: float
-    margin_percentage: float
-    open_positions: int
-    is_active: bool
-    risk_level: str  # "SAFE", "WARNING", "DANGER"
-    last_signal: str
-    power_score: int
-    confluence_level: str
-    signal_color: str  # Harrison's red/yellow/green
-    ninjatrader_connection: str
-    last_update: datetime
-    instruments: List[str]
-    position_size: float
-    entry_price: float
-    unrealized_pnl: float
 
 @dataclass
 class NinjaTraderStatus:
