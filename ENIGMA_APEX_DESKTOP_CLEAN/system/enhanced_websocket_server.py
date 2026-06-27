@@ -18,8 +18,17 @@ import os
 
 # Add current directory to path to import our integration
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-# from production_websocket_integration import ProductionWebSocketIntegration
-from desktop_notifier import DesktopNotifier
+try:
+    from production_websocket_integration import ProductionWebSocketIntegration
+except ImportError:
+    class ProductionWebSocketIntegration:  # no-op stub until real module is implemented
+        async def initialize(self):
+            pass
+
+try:
+    from desktop_notifier import DesktopNotifier
+except ImportError:
+    DesktopNotifier = None
 
 class MessageType(Enum):
     """WebSocket message types"""
@@ -339,21 +348,21 @@ class EnhancedWebSocketServer:
     async def _process_message(self, client_id: str, raw_message: str):
         """Process incoming message from client with database integration"""
         try:
-            print(f"DEBUG: Processing message from {client_id}: {raw_message[:100]}...")
-            
+            self.logger.debug("Processing message from %s: %.100s", client_id, raw_message)
+
             message = WebSocketMessage.from_json(raw_message)
             message.client_id = client_id
-            
+
             self.stats['messages_received'] += 1
             self.stats['last_activity'] = datetime.now()
-            
+
             # Update client heartbeat
             if client_id in self.clients:
                 self.clients[client_id].last_heartbeat = datetime.now()
                 self.clients[client_id].message_count += 1
-            
-            print(f"DEBUG: Message type: {message.message_type.value}")
-            
+
+            self.logger.debug("Message type: %s", message.message_type.value)
+
             # First, pass message to database integration for processing and storage
             if self.db_integration:
                 message_dict = {
@@ -361,9 +370,9 @@ class EnhancedWebSocketServer:
                     'data': message.data,
                     'timestamp': message.timestamp.isoformat()
                 }
-                
+
                 db_response = await self.db_integration.handle_websocket_message(message_dict, client_id)
-                
+
                 # If database integration returns a response, send it back to client
                 if db_response:
                     response_msg = WebSocketMessage(
@@ -373,21 +382,18 @@ class EnhancedWebSocketServer:
                         datetime.now()
                     )
                     await self._send_to_client(client_id, response_msg)
-            
+
             # Then route message to specific handlers if needed
             if message.message_type in self.message_handlers:
-                print(f"DEBUG: Calling handler for {message.message_type.value}")
+                self.logger.debug("Calling handler for %s", message.message_type.value)
                 await self.message_handlers[message.message_type](client_id, message)
-                print(f"DEBUG: Handler completed for {message.message_type.value}")
+                self.logger.debug("Handler completed for %s", message.message_type.value)
             else:
-                self.logger.warning(f"No handler for message type: {message.message_type.value}")
-                
+                self.logger.warning("No handler for message type: %s", message.message_type.value)
+
         except Exception as e:
-            self.logger.error(f"Error processing message from {client_id}: {e}")
-            print(f"DEBUG: Error in _process_message: {e}")
-            import traceback
-            traceback.print_exc()
-            
+            self.logger.error("Error processing message from %s: %s", client_id, e, exc_info=True)
+
             # Send error response
             try:
                 error_msg = WebSocketMessage(
@@ -396,7 +402,7 @@ class EnhancedWebSocketServer:
                 )
                 await self._send_to_client(client_id, error_msg)
             except Exception as send_error:
-                print(f"DEBUG: Failed to send error message: {send_error}")
+                self.logger.debug("Failed to send error message: %s", send_error)
     
     async def _handle_heartbeat(self, client_id: str, message: WebSocketMessage):
         """Handle heartbeat message"""
@@ -464,23 +470,18 @@ class EnhancedWebSocketServer:
             return
         
         try:
-            print(f"DEBUG: Sending message to {client_id}: {message.message_type.value}")
+            self.logger.debug("Sending %s to %s", message.message_type.value, client_id)
             client = self.clients[client_id]
-            
-            # Generate JSON first to catch any serialization errors
+
             json_data = message.to_json()
-            print(f"DEBUG: JSON length: {len(json_data)}")
-            
             await client.websocket.send(json_data)
             self.stats['messages_sent'] += 1
-            print(f"DEBUG: Message sent successfully to {client_id}")
-            
+
         except websockets.exceptions.ConnectionClosed:
-            print(f"DEBUG: Connection closed for {client_id}")
+            self.logger.debug("Connection closed for %s", client_id)
             await self._remove_client(client_id)
         except Exception as e:
-            self.logger.error(f"Error sending message to client {client_id}: {e}")
-            print(f"DEBUG: Error in _send_to_client: {e}")
+            self.logger.error("Error sending message to client %s: %s", client_id, e)
             await self._remove_client(client_id)
     
     async def _remove_client(self, client_id: str):
@@ -612,46 +613,39 @@ class EnhancedWebSocketServer:
         return base_stats
 
 # Main execution
+_log = logging.getLogger(__name__)
+
 async def main():
     """Main function to run the enhanced WebSocket server"""
     try:
-        print("🚀 Starting Enigma-Apex Enhanced WebSocket Server...")
-        print("✅ Server created successfully")
-        
-        # Create and start enhanced server
+        _log.info("Starting Enigma-Apex Enhanced WebSocket Server")
+
         server = EnhancedWebSocketServer()
         await server.start()
-        
-        print("✅ Enhanced server started on ws://localhost:8765")
-        print("📡 Ready for NinjaTrader connections with database integration!")
-        
-        # Keep server running
+
+        _log.info("Enhanced server started on ws://localhost:8765 — ready for connections")
+
         try:
             while server.running:
                 await asyncio.sleep(1)
         except KeyboardInterrupt:
-            print("\n⚡ Shutting down server...")
-            
+            _log.info("Shutdown signal received")
+
         await server.stop()
-        print("✅ Server stopped successfully")
-        
+        _log.info("Server stopped successfully")
+
     except Exception as e:
-        print(f"❌ Server error: {e}")
-        import traceback
-        traceback.print_exc()
+        _log.error("Server error: %s", e, exc_info=True)
 
 if __name__ == "__main__":
-    # Setup logging
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
-    
+
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("\n👋 Server shutdown initiated by user")
+        _log.info("Server shutdown initiated by user")
     except Exception as e:
-        print(f"💥 Fatal error: {e}")
-        import traceback
-        traceback.print_exc()
+        _log.critical("Fatal error: %s", e, exc_info=True)

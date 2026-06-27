@@ -156,21 +156,26 @@ class TradovateAPI(TradingPlatform):
         self._reconnect_enabled = True
         try:
             # Step 1: Authenticate and get access token
-            auth_response = requests.post(
+            auth_response = await asyncio.to_thread(
+                requests.post,
                 f"{self.base_url}/auth/accesstokenrequest",
                 json={
                     "name": self.username,
                     "password": self.password,
                     "appId": "ENIGMA_APEX_TRADER",
-                    "appVersion": "1.0"
-                }
+                    "appVersion": "1.0",
+                },
             )
             
             if auth_response.status_code != 200:
                 self.logger.error(f"Authentication failed: {auth_response.text}")
                 return False
             
-            self.access_token = auth_response.json()["accessToken"]
+            token = auth_response.json().get("accessToken")
+            if not token:
+                self.logger.error(f"Auth response missing accessToken: {auth_response.text}")
+                return False
+            self.access_token = token
             self.logger.info("Tradovate authentication successful")
             
             # Step 2: Establish WebSocket connection
@@ -182,7 +187,7 @@ class TradovateAPI(TradingPlatform):
             self.websocket = await websockets.connect(
                 self.ws_url,
                 extra_headers=headers,
-                ssl=ssl.SSLContext()
+                ssl=ssl.create_default_context()
             )
             
             self.is_connected = True
@@ -212,10 +217,11 @@ class TradovateAPI(TradingPlatform):
         """Place order through Tradovate API"""
         try:
             # Get contract ID for symbol
-            contract_response = requests.get(
+            contract_response = await asyncio.to_thread(
+                requests.get,
                 f"{self.base_url}/contract/suggest",
                 headers={"Authorization": f"Bearer {self.access_token}"},
-                params={"t": order.symbol}
+                params={"t": order.symbol},
             )
             
             if contract_response.status_code != 200:
@@ -245,10 +251,11 @@ class TradovateAPI(TradingPlatform):
                 order_payload["stopPrice"] = order.stop_price
             
             # Place order
-            order_response = requests.post(
+            order_response = await asyncio.to_thread(
+                requests.post,
                 f"{self.base_url}/order/placeorder",
                 headers={"Authorization": f"Bearer {self.access_token}"},
-                json=order_payload
+                json=order_payload,
             )
             
             if order_response.status_code != 200:
@@ -267,10 +274,11 @@ class TradovateAPI(TradingPlatform):
     async def cancel_order(self, order_id: str) -> bool:
         """Cancel order through Tradovate API"""
         try:
-            cancel_response = requests.post(
+            cancel_response = await asyncio.to_thread(
+                requests.post,
                 f"{self.base_url}/order/cancelorder",
                 headers={"Authorization": f"Bearer {self.access_token}"},
-                json={"orderId": int(order_id)}
+                json={"orderId": int(order_id)},
             )
             
             success = cancel_response.status_code == 200
@@ -289,9 +297,10 @@ class TradovateAPI(TradingPlatform):
         """Get account information from Tradovate"""
         try:
             # Get account details
-            account_response = requests.get(
+            account_response = await asyncio.to_thread(
+                requests.get,
                 f"{self.base_url}/account/list",
-                headers={"Authorization": f"Bearer {self.access_token}"}
+                headers={"Authorization": f"Bearer {self.access_token}"},
             )
             
             if account_response.status_code != 200:
@@ -338,9 +347,10 @@ class TradovateAPI(TradingPlatform):
     async def get_positions(self) -> List[Position]:
         """Get current positions from Tradovate"""
         try:
-            positions_response = requests.get(
+            positions_response = await asyncio.to_thread(
+                requests.get,
                 f"{self.base_url}/position/list",
-                headers={"Authorization": f"Bearer {self.access_token}"}
+                headers={"Authorization": f"Bearer {self.access_token}"},
             )
             
             if positions_response.status_code != 200:
@@ -372,9 +382,10 @@ class TradovateAPI(TradingPlatform):
     async def get_orders(self) -> List[TradingOrder]:
         """Get current orders from Tradovate"""
         try:
-            orders_response = requests.get(
+            orders_response = await asyncio.to_thread(
+                requests.get,
                 f"{self.base_url}/order/list",
-                headers={"Authorization": f"Bearer {self.access_token}"}
+                headers={"Authorization": f"Bearer {self.access_token}"},
             )
             
             if orders_response.status_code != 200:

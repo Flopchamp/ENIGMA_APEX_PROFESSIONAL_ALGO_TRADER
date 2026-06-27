@@ -17,6 +17,12 @@ from datetime import datetime
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 import logging
+from enigma_config import (
+    OCR_ACTIVATION_PIXEL_THRESHOLD,
+    OCR_COLOR_SIGNAL_MIN_PIXELS,
+    CADENCE_THRESHOLD_AM,
+    CADENCE_THRESHOLD_PM,
+)
 
 # Configure OCR path — override with TESSERACT_CMD env var if Tesseract is installed elsewhere
 pytesseract.pytesseract.tesseract_cmd = os.environ.get(
@@ -178,7 +184,7 @@ class OCRSignalReader:
                 green_mask = cv2.inRange(hsv, green_lower, green_upper)
                 
                 # If green pixels found, this level is active
-                if np.sum(green_mask) > 100:  # Threshold for activation
+                if np.sum(green_mask) > OCR_ACTIVATION_PIXEL_THRESHOLD:
                     active_level = level
             
             return active_level
@@ -219,7 +225,7 @@ class OCRSignalReader:
                     detected_color = color_name
             
             # Require minimum pixel count for valid detection
-            if max_pixels < 50:
+            if max_pixels < OCR_COLOR_SIGNAL_MIN_PIXELS:
                 return "NONE"
             
             return detected_color
@@ -250,7 +256,7 @@ class OCRSignalReader:
                 upper_np = np.array(upper)
                 mask = cv2.inRange(hsv, lower_np, upper_np)
                 
-                if np.sum(mask) > 100:  # Threshold
+                if np.sum(mask) > OCR_ACTIVATION_PIXEL_THRESHOLD:
                     return status
             
             return "NEUTRAL"
@@ -382,7 +388,7 @@ class OCRSignalReader:
     
     def check_cadence_threshold(self) -> bool:
         """Check if cadence threshold is met for high-probability setup"""
-        threshold = 2 if self.session == "AM" else 3
+        threshold = CADENCE_THRESHOLD_AM if self.session == "AM" else CADENCE_THRESHOLD_PM
         return self.cadence_failures >= threshold
     
     async def start_continuous_monitoring(self, websocket_url: str = "ws://localhost:8765"):

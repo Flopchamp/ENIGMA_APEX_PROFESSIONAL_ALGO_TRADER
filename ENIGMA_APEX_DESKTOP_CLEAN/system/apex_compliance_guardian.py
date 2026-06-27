@@ -75,14 +75,8 @@ class ApexComplianceGuardian:
         self.violations = []
         self.alerts = []
         self.is_monitoring = False
-        
-        # Setup logging
-        logging.basicConfig(
-            filename='apex_compliance.log',
-            level=logging.INFO,
-            format='%(asctime)s - %(levelname)s - %(message)s'
-        )
-        
+        self.logger = logging.getLogger(__name__)
+
         # Load settings
         self.load_settings()
         
@@ -488,7 +482,7 @@ class ApexComplianceGuardian:
             current_drawdown = account_data.get('current_drawdown', 0.0)
             
             # Check against Apex 3.0 rules
-            max_drawdown = self.apex_rules.evaluation_trailing_threshold
+            max_drawdown = self.rules.evaluation_trailing_threshold
             
             if current_drawdown >= max_drawdown:
                 violation = {
@@ -589,7 +583,7 @@ class ApexComplianceGuardian:
                 self.status_labels['next_reset'].config(text="None")
                 
         except Exception as e:
-            print(f"GUI update error: {e}")
+            self.logger.error("GUI update error: %s", e)
             
     def add_alert(self, message, level="INFO"):
         """Add alert to the log"""
@@ -639,16 +633,11 @@ class ApexComplianceGuardian:
         settings = {
             'safety_ratio': self.safety_scale.get(),
             'platform': self.platform_var.get(),
-            'rules': {
-                'evaluation_target': self.rules.evaluation_target,
-                'evaluation_max_loss': self.rules.evaluation_max_loss,
-                'consistency_rule': self.rules.consistency_rule
-            }
         }
-        
+
         with open('apex_settings.json', 'w') as f:
             json.dump(settings, f, indent=2)
-            
+
         self.add_alert("💾 Settings saved successfully", "SUCCESS")
         
     def load_settings(self):

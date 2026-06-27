@@ -5,11 +5,21 @@ First Principles AI Enhancement for Michael Canfield's Vision
 
 import asyncio
 import json
+import logging
 import sqlite3
 from datetime import datetime
 from collections import deque
 import numpy as np
 from typing import Dict, List, Optional, Tuple
+from enigma_config import (
+    KELLY_FRACTION_CAP,
+    ATR_STOP_LOSS_MULTIPLE,
+    ATR_PROFIT_TARGET_MULTIPLE,
+    MIN_POWER_SCORE,
+    CADENCE_THRESHOLD_AM,
+    CADENCE_THRESHOLD_PM,
+    MIN_VOLUME_SURGE,
+)
 
 class FirstPrinciplesAI:
     """
@@ -18,20 +28,21 @@ class FirstPrinciplesAI:
     """
     
     def __init__(self):
+        self.logger = logging.getLogger(__name__ + ".FirstPrinciplesAI")
         self.trade_history = deque(maxlen=100)  # Rolling 100 trades
         self.first_principles = {
             "risk_management": {
-                "max_risk_per_trade": 0.01,  # 1% max risk
-                "daily_loss_limit": 0.04,    # 4% daily limit
-                "stop_loss_atr_multiple": 1.5,
-                "profit_target_atr_multiple": 2.0
+                "max_risk_per_trade": 0.01,
+                "daily_loss_limit": 0.04,
+                "stop_loss_atr_multiple": ATR_STOP_LOSS_MULTIPLE,
+                "profit_target_atr_multiple": ATR_PROFIT_TARGET_MULTIPLE,
             },
             "edge_identification": {
                 "min_confluence_level": "L3",
-                "min_power_score": 15,
-                "cadence_threshold_am": 2,   # 2 failures AM
-                "cadence_threshold_pm": 3,   # 3 failures PM
-                "min_volume_surge": 1.5      # 1.5x average volume
+                "min_power_score": MIN_POWER_SCORE,
+                "cadence_threshold_am": CADENCE_THRESHOLD_AM,
+                "cadence_threshold_pm": CADENCE_THRESHOLD_PM,
+                "min_volume_surge": MIN_VOLUME_SURGE,
             },
             "loss_minimization": {
                 "immediate_exit_conditions": [
@@ -123,10 +134,10 @@ class FirstPrinciplesAI:
             ''')
             
             self.db_connection.commit()
-            print("✅ AI Analytics database initialized successfully")
-            
+            self.logger.info("AI Analytics database initialized")
+
         except Exception as e:
-            print(f"❌ Failed to initialize AI database: {e}")
+            self.logger.error("Failed to initialize AI database: %s", e)
     
     def analyze_first_principles(self, trade_data: Dict) -> Dict:
         """
@@ -294,7 +305,7 @@ class FirstPrinciplesAI:
             ))
             self.db_connection.commit()
         except Exception as e:
-            print(f"❌ Failed to store AI insights: {e}")
+            self.logger.error("Failed to store AI insights: %s", e)
     
     def update_performance_metrics(self, trade_outcome: Dict):
         """Update performance metrics based on trade outcome"""
@@ -326,7 +337,7 @@ class FirstPrinciplesAI:
             ))
             self.db_connection.commit()
         except Exception as e:
-            print(f"❌ Failed to store trade performance: {e}")
+            self.logger.error("Failed to store trade performance: %s", e)
     
     def generate_optimization_insights(self) -> Dict:
         """Generate optimization insights based on historical performance"""
@@ -372,7 +383,7 @@ class FirstPrinciplesAI:
                     )
             
         except Exception as e:
-            print(f"❌ Failed to generate optimization insights: {e}")
+            self.logger.error("Failed to generate optimization insights: %s", e)
         
         return insights
     
@@ -404,8 +415,8 @@ class FirstPrinciplesAI:
             # ATR-based stops and targets
             atr_value = current_market_data.get("atr", 0)
             if atr_value > 0:
-                guidance["stop_loss_suggestion"] = atr_value * 1.5
-                guidance["profit_target_suggestion"] = atr_value * 2.0
+                guidance["stop_loss_suggestion"] = atr_value * ATR_STOP_LOSS_MULTIPLE
+                guidance["profit_target_suggestion"] = atr_value * ATR_PROFIT_TARGET_MULTIPLE
         
         return guidance
     
@@ -415,15 +426,23 @@ class FirstPrinciplesAI:
         
         # Calculate R:R ratio from ATR-based targets
         atr_value = market_data.get("atr", 1.0)
-        stop_loss = atr_value * 1.5
-        profit_target = atr_value * 2.0
+        stop_loss = atr_value * ATR_STOP_LOSS_MULTIPLE
+        profit_target = atr_value * ATR_PROFIT_TARGET_MULTIPLE
         rr_ratio = profit_target / stop_loss if stop_loss > 0 else 2.0
         
         # Kelly formula: f = (bp - q) / b
         # where b = reward/risk ratio, p = win probability, q = loss probability
         kelly_fraction = (rr_ratio * win_rate - (1 - win_rate)) / rr_ratio
         
-        return max(0, min(0.25, kelly_fraction))  # Cap at 25%
+        return max(0, min(KELLY_FRACTION_CAP, kelly_fraction))
+
+    def close(self):
+        if self.db_connection:
+            self.db_connection.close()
+            self.db_connection = None
+
+    def __del__(self):
+        self.close()
 
 # Create alias for compatibility with validator
 ChatGPTAgentIntegration = 'EnigmaApexAIAgent'
@@ -440,6 +459,7 @@ class EnigmaApexAIAgent:
     """
     
     def __init__(self):
+        self.logger = logging.getLogger(__name__ + ".EnigmaApexAIAgent")
         self.ai_engine = FirstPrinciplesAI()
         self.kelly_engine = KellyOptimizationEngine()
         self.is_running = False
@@ -458,14 +478,14 @@ class EnigmaApexAIAgent:
             
             kelly_fraction = (b * p - q) / b
             
-            # Apply safety constraints (Half-Kelly + max 25%)
-            kelly_fraction = max(0, min(kelly_fraction, 0.25))
+            # Apply safety constraints (Half-Kelly)
+            kelly_fraction = max(0, min(kelly_fraction, KELLY_FRACTION_CAP))
             half_kelly = kelly_fraction / 2
             
             return half_kelly
             
         except Exception as e:
-            print(f"Kelly calculation error: {e}")
+            self.logger.error("Kelly calculation error: %s", e)
             return 0.01
     
     def analyze_first_principles(self, market_data: Dict) -> Dict:
@@ -488,7 +508,7 @@ class EnigmaApexAIAgent:
             return analysis
             
         except Exception as e:
-            print(f"First principles analysis error: {e}")
+            self.logger.error("First principles analysis error: %s", e)
             return {'error': str(e), 'recommendation': 'HOLD'}
     
     def analyze_enigma_signal(self, signal_data: Dict) -> Dict:
@@ -520,7 +540,7 @@ class EnigmaApexAIAgent:
             return analysis
             
         except Exception as e:
-            print(f"Enigma signal analysis error: {e}")
+            self.logger.error("Enigma signal analysis error: %s", e)
             return {'error': str(e), 'trade_recommendation': 'HOLD'}
     
     def real_time_guidance(self, market_conditions: Dict) -> Dict:
@@ -549,7 +569,7 @@ class EnigmaApexAIAgent:
             return guidance
             
         except Exception as e:
-            print(f"Real-time guidance error: {e}")
+            self.logger.error("Real-time guidance error: %s", e)
             return {'error': str(e), 'action': 'MONITOR'}
     
     def _assess_risk_principles(self, data: Dict) -> Dict:
@@ -566,16 +586,18 @@ class EnigmaApexAIAgent:
 
 class KellyOptimizationEngine:
     """Kelly Criterion optimization engine"""
-    
+
     def __init__(self):
+        self.logger = logging.getLogger(__name__ + ".KellyOptimizationEngine")
         self.history = deque(maxlen=100)
         self.base_win_rate = 0.5
+        self.is_running = False
+        self.ai_engine = FirstPrinciplesAI()
     
     async def start_ai_agent(self):
         """Start the AI agent for continuous analysis"""
         self.is_running = True
-        print("🤖 Enigma-Apex AI Agent started")
-        print("🎯 Applying first principles for profit maximization and loss minimization")
+        self.logger.info("AI Agent started — applying first principles")
         
         while self.is_running:
             try:
@@ -584,7 +606,7 @@ class KellyOptimizationEngine:
                 await asyncio.sleep(1)  # Check every second
                 
             except Exception as e:
-                print(f"❌ AI Agent error: {e}")
+                self.logger.error("AI Agent error: %s", e)
                 await asyncio.sleep(5)
     
     def analyze_trade_opportunity(self, trade_data: Dict) -> Dict:
@@ -602,7 +624,7 @@ class KellyOptimizationEngine:
     def stop_ai_agent(self):
         """Stop the AI agent"""
         self.is_running = False
-        print("🛑 Enigma-Apex AI Agent stopped")
+        self.logger.info("AI Agent stopped")
 
 # Example usage and testing
 def test_ai_agent():
